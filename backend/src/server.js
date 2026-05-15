@@ -32,15 +32,29 @@ app.get('/api/health', (req, res) => {
 });
 
 app.post('/api/users', asyncHandler(async (req, res) => {
-  const { email, name, dob, vendor_name, field_of_work, location, avatar_url } = req.body || {};
+  const { id, email, name, dob, vendor_name, field_of_work, location, avatar_url } = req.body || {};
 
   if (!email || !name || !dob || !Array.isArray(field_of_work) || field_of_work.length === 0 || !location) {
     return res.status(400).json({ error: 'Missing required user fields.' });
   }
 
+  const payload = {
+    email,
+    name,
+    dob,
+    vendor_name,
+    field_of_work,
+    location,
+    avatar_url,
+  };
+  if (id) {
+    payload.id = id;
+  }
+
+  const conflictTarget = id ? 'id' : 'email';
   const { data, error } = await supabase
     .from('users')
-    .insert({ email, name, dob, vendor_name, field_of_work, location, avatar_url })
+    .upsert(payload, { onConflict: conflictTarget })
     .select('*')
     .single();
 
@@ -61,7 +75,10 @@ app.get('/api/users/:id', asyncHandler(async (req, res) => {
     .single();
 
   if (error) {
-    return res.status(404).json({ error: error.message });
+    const status = error.code === 'PGRST116'
+      ? 404
+      : (typeof error.status === 'number' ? error.status : 500);
+    return res.status(status).json({ error: error.message });
   }
 
   return res.json(data);

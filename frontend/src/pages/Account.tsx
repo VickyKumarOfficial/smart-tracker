@@ -1,11 +1,22 @@
 import { LogOut, User, Mail, Briefcase, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient';
 
 export function Account() {
   const navigate = useNavigate();
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch {
+    }
     localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('user_id');
+    localStorage.removeItem('user_email');
+    localStorage.removeItem('user_name');
+    localStorage.removeItem('vendor_name');
+    localStorage.removeItem('vendor_location');
+    localStorage.removeItem('avatar_url');
     navigate('/signin');
   };
 

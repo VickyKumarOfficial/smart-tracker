@@ -42,6 +42,19 @@ type TransactionRow = {
   badgeClass: string;
 };
 
+type ProductRecord = {
+  id: string;
+  name: string;
+};
+
+type TransactionRecord = {
+  id: string;
+  product_id: string;
+  amount: number;
+  transaction_date: string;
+  payment_status: string;
+};
+
 export function History() {
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -74,14 +87,14 @@ export function History() {
           throw new Error(errorBody.error || 'Unable to load products.');
         }
 
-        const transactionsData = await transactionsResponse.json();
-        const productsData = await productsResponse.json();
-        const productMap = new Map(
-          (productsData || []).map((product: { id: string; name: string }) => [product.id, product.name])
+        const transactionsData = (await transactionsResponse.json()) as TransactionRecord[];
+        const productsData = (await productsResponse.json()) as ProductRecord[];
+        const productMap = new Map<string, string>(
+          (productsData || []).map((product) => [product.id, product.name])
         );
 
-        const mapped = (transactionsData || []).map((tx: { id: string; product_id: string; amount: number; transaction_date: string; payment_status: string }) => {
-          const productName = productMap.get(tx.product_id) ?? 'Product';
+        const mapped = (transactionsData || []).map((tx) => {
+          const productName = String(productMap.get(tx.product_id) ?? 'Product');
           return {
             id: tx.id,
             product: productName,

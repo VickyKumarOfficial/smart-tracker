@@ -10,6 +10,7 @@
     "start": "cd frontend && npm start",
     "lint": "cd frontend && npm run lint"
   },
-  "dependencies": {},
-  "devDependencies": {}
+  "dependencies": {
+    "@supabase/supabase-js": "^2.105.4"
+  }
 }

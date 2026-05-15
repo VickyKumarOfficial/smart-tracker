@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient';
 import signupImage from '../assets/signup.webp';
 
 export function SignUp() {
@@ -8,14 +9,15 @@ export function SignUp() {
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [fieldError, setFieldError] = useState('');
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001';
-  const [name, setName] = useState('');
-  const [vendorName, setVendorName] = useState('');
-  const [email, setEmail] = useState('');
+  const [name, setName] = useState(() => localStorage.getItem('user_name') ?? '');
+  const [vendorName, setVendorName] = useState(() => localStorage.getItem('vendor_name') ?? '');
+  const [email, setEmail] = useState(() => localStorage.getItem('user_email') ?? '');
+  const [password, setPassword] = useState('');
   const [dob, setDob] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
-  const [location, setLocation] = useState('');
+  const [location, setLocation] = useState(() => localStorage.getItem('vendor_location') ?? '');
   const [otherField, setOtherField] = useState('');
   const [submitError, setSubmitError] = useState('');
+  const [submitNotice, setSubmitNotice] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleFieldToggle = (field: string) => {
@@ -36,12 +38,13 @@ export function SignUp() {
       setFieldError('Enter your other field of work.');
       return;
     }
-    if (!name.trim() || !email.trim() || !dob || !location.trim()) {
+    if (!name.trim() || !email.trim() || !dob || !location.trim() || !password.trim()) {
       setSubmitError('Please fill in all required fields.');
       return;
     }
     setFieldError('');
     setSubmitError('');
+    setSubmitNotice('');
 
     const normalizedFields = selectedFields
       .filter((field) => field !== 'Other')
@@ -50,34 +53,57 @@ export function SignUp() {
 
     setIsSubmitting(true);
     try {
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password: password.trim(),
+        options: {
+          emailRedirectTo: `${window.location.origin}/signin`,
+        },
+      });
+
+      if (authError) {
+        throw new Error(authError.message);
+      }
+
+      const userId = authData.user?.id;
+      if (!userId) {
+        throw new Error('Unable to create account.');
+      }
+
       const response = await fetch(`${API_BASE_URL}/api/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          id: userId,
           email: email.trim(),
           name: name.trim(),
           dob,
           vendor_name: vendorName.trim() || null,
           field_of_work: normalizedFields,
           location: location.trim(),
-          avatar_url: avatarUrl.trim() || null,
         }),
       });
 
       if (!response.ok) {
         const errorBody = await response.json().catch(() => ({}));
-        throw new Error(errorBody.error || 'Unable to create account.');
+        throw new Error(errorBody.error || 'Unable to create vendor profile.');
       }
 
-      const data = await response.json();
-      localStorage.setItem('isAuthenticated', 'true');
-      localStorage.setItem('user_id', data.id);
-      localStorage.setItem('user_name', data.name);
-      localStorage.setItem('user_email', data.email);
-      if (data.vendor_name) {
-        localStorage.setItem('vendor_name', data.vendor_name);
+      if (authData.session) {
+        localStorage.setItem('isAuthenticated', 'true');
+        localStorage.setItem('user_id', userId);
+        localStorage.setItem('user_name', name.trim());
+        localStorage.setItem('user_email', email.trim());
+        if (vendorName.trim()) {
+          localStorage.setItem('vendor_name', vendorName.trim());
+        }
+        localStorage.setItem('vendor_location', location.trim());
+        navigate('/dashboard');
+        return;
       }
-      navigate('/dashboard');
+
+      setSubmitNotice('Account created. Please check your email to confirm, then sign in.');
+      navigate('/signin');
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Unable to create account.');
     } finally {
@@ -135,8 +161,9 @@ export function SignUp() {
         </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-bold tracking-widest uppercase text-stone-500">AVATAR URL</label>
-            <input type="url" placeholder="https://example.com/avatar.jpg" value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50" />
+            <label className="text-xs font-bold tracking-widest uppercase text-stone-500">PASSWORD</label>
+            <span className = "required-star" title="Required Field"style={{ color: 'red' }}>  * </span>
+            <input type="password" placeholder="Create a password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50" required />
           </div>
 
         <div className="space-y-2">
@@ -189,6 +216,11 @@ export function SignUp() {
         {submitError && (
           <p className="text-xs font-medium text-red-600" role="alert">
             {submitError}
+          </p>
+        )}
+        {submitNotice && (
+          <p className="text-xs font-medium text-green-700" role="status">
+            {submitNotice}
           </p>
         )}
 

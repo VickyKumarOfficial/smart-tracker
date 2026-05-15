@@ -1,13 +1,151 @@
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BookOpen } from 'lucide-react';
+import type { Session } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabaseClient';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001';
 
 export function SignIn() {
   const navigate = useNavigate();
+  const [authError, setAuthError] = useState('');
+  const [authNotice, setAuthNotice] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
-  const handleSignIn = (e: React.FormEvent) => {
-    e.preventDefault();
+  const completeLogin = async (session: Session) => {
+    const user = session.user;
+    if (!user) {
+      return;
+    }
     localStorage.setItem('isAuthenticated', 'true');
-    navigate('/dashboard');
+    localStorage.setItem('user_id', user.id);
+    if (user.email) {
+      localStorage.setItem('user_email', user.email);
+    }
+    const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Vendor';
+    localStorage.setItem('user_name', displayName);
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/${user.id}`);
+      if (response.ok) {
+        navigate('/dashboard');
+        return;
+      }
+      if (response.status === 404) {
+        navigate('/signup');
+        return;
+      }
+      const errorBody = await response.json().catch(() => ({}));
+      throw new Error(errorBody.error || 'Unable to load profile.');
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'Unable to load profile.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const syncSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session && isMounted) {
+        await completeLogin(data.session);
+      }
+    };
+
+    syncSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) {
+        return;
+      }
+      if (session) {
+        void completeLogin(session);
+        return;
+      }
+      localStorage.removeItem('isAuthenticated');
+      localStorage.removeItem('user_id');
+      localStorage.removeItem('user_email');
+      localStorage.removeItem('user_name');
+      localStorage.removeItem('vendor_name');
+      localStorage.removeItem('vendor_location');
+      localStorage.removeItem('avatar_url');
+    });
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
+  }, [navigate]);
+
+  const handleGoogleSignIn = async () => {
+    setAuthError('');
+    setAuthNotice('');
+    setIsLoading(true);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/signin`,
+      },
+    });
+
+    if (error) {
+      setAuthError(error.message);
+      setIsLoading(false);
+    }
+  };
+
+  const handlePasswordSignIn = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAuthError('');
+    setAuthNotice('');
+    if (!email.trim() || !password.trim()) {
+      setAuthError('Enter your email and password.');
+      return;
+    }
+
+    setIsLoading(true);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password: password.trim(),
+    });
+
+    if (error) {
+      setAuthError(error.message);
+      setIsLoading(false);
+      return;
+    }
+
+    if (data.session) {
+      await completeLogin(data.session);
+    }
+  };
+
+  const handleMagicLink = async () => {
+    setAuthError('');
+    setAuthNotice('');
+    if (!email.trim()) {
+      setAuthError('Enter your email first.');
+      return;
+    }
+
+    setIsLoading(true);
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: {
+        emailRedirectTo: `${window.location.origin}/signin`,
+      },
+    });
+
+    if (error) {
+      setAuthError(error.message);
+    } else {
+      setAuthNotice('Magic link sent. Check your email to continue.');
+    }
+    setIsLoading(false);
   };
 
   return (
@@ -29,39 +167,64 @@ export function SignIn() {
         Enter your details to access your vendor workspace and manage your ledger.
       </p>
 
-      <form className="space-y-6" onSubmit={handleSignIn}>
+      <form className="space-y-4" onSubmit={handlePasswordSignIn}>
         <div className="space-y-2">
-          <label className="text-xs font-bold tracking-widest uppercase text-stone-500">EMAIL OR USERNAME</label>
-          <input 
-            type="text" 
+          <label className="text-xs font-bold tracking-widest uppercase text-stone-500">EMAIL</label>
+          <input
+            type="email"
             placeholder="vendor@example.com"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
             className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50"
           />
         </div>
-        
         <div className="space-y-2">
           <label className="text-xs font-bold tracking-widest uppercase text-stone-500">PASSWORD</label>
-          <input 
-            type="password" 
-            placeholder="••••••••"
+          <input
+            type="password"
+            placeholder="Your password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
             className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50"
           />
         </div>
-
-        <div className="flex items-center justify-between pt-1">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" className="w-4 h-4 rounded border-stone-300 text-[#A04A25] focus:ring-[#A04A25]" />
-            <span className="text-sm text-stone-600">Remember me</span>
-          </label>
-          <a href="#" className="text-sm text-[#A04A25] hover:text-[#8B3A1C] font-medium">Forgot password?</a>
-        </div>
-
-        <button 
-          className="w-full bg-[#A04A25] hover:bg-[#8B3A1C] text-white py-3.5 rounded-sm font-semibold tracking-wider text-sm transition-colors shadow-sm flex justify-center items-center gap-2 mt-4"
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="w-full bg-[#A04A25] hover:bg-[#8B3A1C] text-white py-3.5 rounded-sm font-semibold tracking-wider text-sm transition-colors shadow-sm flex justify-center items-center gap-2 mt-2 disabled:opacity-70 disabled:cursor-not-allowed"
         >
-          SIGN IN <span className="text-lg leading-none">→</span>
+          {isLoading ? 'SIGNING IN...' : 'SIGN IN'}
         </button>
       </form>
+
+      <button
+        onClick={handleMagicLink}
+        disabled={isLoading}
+        className="w-full border border-stone-200 text-stone-700 hover:text-stone-900 hover:border-stone-300 py-3 rounded-sm font-semibold tracking-wider text-sm transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+      >
+        SEND MAGIC LINK
+      </button>
+
+      <div className="space-y-4">
+        <button
+          onClick={handleGoogleSignIn}
+          disabled={isLoading}
+          className="w-full bg-[#A04A25] hover:bg-[#8B3A1C] text-white py-3.5 rounded-sm font-semibold tracking-wider text-sm transition-colors shadow-sm flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+        >
+          {isLoading ? 'CONNECTING...' : 'CONTINUE WITH GOOGLE'}
+        </button>
+      </div>
+
+      {authError && (
+        <p className="text-xs font-medium text-red-600" role="alert">
+          {authError}
+        </p>
+      )}
+      {authNotice && (
+        <p className="text-xs font-medium text-green-700" role="status">
+          {authNotice}
+        </p>
+      )}
 
       <div className="mt-auto pt-16 pb-8 text-center text-sm text-stone-500">
         Don't have a workspace yet? <Link to="/signup" className="text-[#A04A25] font-semibold hover:text-[#8B3A1C] uppercase tracking-wider ml-1">SIGN UP</Link>
