@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { X, ImagePlus } from 'lucide-react';
 
 interface AddItemModalProps {
@@ -5,6 +6,89 @@ interface AddItemModalProps {
 }
 
 export function AddItemModal({ onClose }: AddItemModalProps) {
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001';
+  const [imageUrl, setImageUrl] = useState('');
+  const [name, setName] = useState('');
+  const [type, setType] = useState('Leather Goods');
+  const [quantity, setQuantity] = useState('1');
+  const [price, setPrice] = useState('0.00');
+  const [status, setStatus] = useState('not_sold');
+  const [paymentStatus, setPaymentStatus] = useState('pending');
+  const [transactionDate, setTransactionDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [dueDate, setDueDate] = useState('');
+  const [submitError, setSubmitError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSubmitError('');
+
+    const userId = localStorage.getItem('user_id');
+    if (!userId) {
+      setSubmitError('Please sign in before adding an item.');
+      return;
+    }
+    if (!name.trim()) {
+      setSubmitError('Product name is required.');
+      return;
+    }
+    if (!transactionDate) {
+      setSubmitError('Transaction date is required.');
+      return;
+    }
+
+    const parsedQuantity = Number(quantity) || 1;
+    const parsedPrice = Number(price) || 0;
+
+    setIsSubmitting(true);
+    try {
+      const productResponse = await fetch(`${API_BASE_URL}/api/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          name: name.trim(),
+          type,
+          quantity: parsedQuantity,
+          price: parsedPrice,
+          status,
+          image_url: imageUrl.trim() || null,
+        }),
+      });
+
+      if (!productResponse.ok) {
+        const errorBody = await productResponse.json().catch(() => ({}));
+        throw new Error(errorBody.error || 'Unable to save product.');
+      }
+
+      const product = await productResponse.json();
+
+      const transactionResponse = await fetch(`${API_BASE_URL}/api/transactions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          product_id: product.id,
+          amount: parsedPrice,
+          payment_status: paymentStatus,
+          transaction_date: transactionDate,
+          due_date: dueDate || null,
+        }),
+      });
+
+      if (!transactionResponse.ok) {
+        const errorBody = await transactionResponse.json().catch(() => ({}));
+        throw new Error(errorBody.error || 'Unable to save transaction.');
+      }
+
+      onClose();
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Unable to save item.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-[2px]">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden font-sans animation-fade-in-up">
@@ -27,12 +111,14 @@ export function AddItemModal({ onClose }: AddItemModalProps) {
           </div>
 
           {/* Form */}
-          <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); onClose(); }}>
+          <form id="add-item-form" className="space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-2">
               <label className="text-xs font-bold tracking-wider uppercase text-stone-500">IMAGE URL</label>
               <input 
                 type="url" 
                 placeholder="https://example.com/image.jpg"
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
                 className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50"
               />
             </div>
@@ -43,15 +129,17 @@ export function AddItemModal({ onClose }: AddItemModalProps) {
                 <input 
                   type="text" 
                   placeholder="e.g. Handcrafted Wallet"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-bold tracking-wider uppercase text-stone-500">TYPE</label>
-                <select className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50 appearance-none bg-no-repeat bg-[right_1rem_center]" style={{ backgroundImage: 'url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3E%3Cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'m6 8 4 4 4-4\'/%3E%3C/svg%3E")' }}>
-                  <option>Leather Goods</option>
-                  <option>Ceramics</option>
-                  <option>Jewelry</option>
+                <select value={type} onChange={(e) => setType(e.target.value)} className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50 appearance-none bg-no-repeat bg-[right_1rem_center]" style={{ backgroundImage: 'url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3E%3Cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'m6 8 4 4 4-4\'/%3E%3C/svg%3E")' }}>
+                  <option value="Leather Goods">Leather Goods</option>
+                  <option value="Ceramics">Ceramics</option>
+                  <option value="Jewelry">Jewelry</option>
                 </select>
               </div>
             </div>
@@ -61,7 +149,8 @@ export function AddItemModal({ onClose }: AddItemModalProps) {
                 <label className="text-xs font-bold tracking-wider uppercase text-stone-500">QTY</label>
                 <input 
                   type="number" 
-                  defaultValue="1"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
                   className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50"
                 />
               </div>
@@ -69,15 +158,16 @@ export function AddItemModal({ onClose }: AddItemModalProps) {
                 <label className="text-xs font-bold tracking-wider uppercase text-stone-500">PRICE ($)</label>
                 <input 
                   type="text" 
-                  defaultValue="0.00"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
                   className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50"
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-bold tracking-wider uppercase text-stone-500">STATUS</label>
-                <select className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50 appearance-none bg-no-repeat bg-[right_1rem_center]" style={{ backgroundImage: 'url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3E%3Cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'m6 8 4 4 4-4\'/%3E%3C/svg%3E")' }}>
-                  <option>Not sold</option>
-                  <option>Sold</option>
+                <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50 appearance-none bg-no-repeat bg-[right_1rem_center]" style={{ backgroundImage: 'url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3E%3Cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'m6 8 4 4 4-4\'/%3E%3C/svg%3E")' }}>
+                  <option value="not_sold">Not sold</option>
+                  <option value="sold">Sold</option>
                 </select>
               </div>
             </div>
@@ -85,16 +175,18 @@ export function AddItemModal({ onClose }: AddItemModalProps) {
             <div className="grid grid-cols-3 gap-6">
               <div className="space-y-2">
                 <label className="text-xs font-bold tracking-wider uppercase text-stone-500">PAYMENT STATUS</label>
-                <select className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50 appearance-none bg-no-repeat bg-[right_1rem_center]" style={{ backgroundImage: 'url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3E%3Cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'m6 8 4 4 4-4\'/%3E%3C/svg%3E")' }}>
-                  <option>Pending</option>
-                  <option>Completed</option>
-                  <option>Overdue</option>
+                <select value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)} className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50 appearance-none bg-no-repeat bg-[right_1rem_center]" style={{ backgroundImage: 'url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3E%3Cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'m6 8 4 4 4-4\'/%3E%3C/svg%3E")' }}>
+                  <option value="pending">Pending</option>
+                  <option value="completed">Completed</option>
+                  <option value="overdue">Overdue</option>
                 </select>
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-bold tracking-wider uppercase text-stone-500">TRANSACTION DATE</label>
                 <input 
                   type="date" 
+                  value={transactionDate}
+                  onChange={(e) => setTransactionDate(e.target.value)}
                   className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm text-stone-500 focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50"
                 />
               </div>
@@ -102,10 +194,17 @@ export function AddItemModal({ onClose }: AddItemModalProps) {
                 <label className="text-xs font-bold tracking-wider uppercase text-stone-500">DUE DATE</label>
                 <input 
                   type="date" 
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
                   className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm text-stone-500 focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50"
                 />
               </div>
             </div>
+            {submitError && (
+              <p className="text-xs font-medium text-red-600" role="alert">
+                {submitError}
+              </p>
+            )}
           </form>
 
         </div>
@@ -119,10 +218,12 @@ export function AddItemModal({ onClose }: AddItemModalProps) {
             CANCEL
           </button>
           <button 
+            form="add-item-form"
             type="submit"
+            disabled={isSubmitting}
             className="px-6 py-2.5 text-sm font-semibold tracking-wide border border-transparent bg-[#A04A25] text-white rounded-md hover:bg-[#8B3A1C] shadow-sm transition"
           >
-            Save Item
+            {isSubmitting ? 'Saving...' : 'Save Item'}
           </button>
         </div>
       </div>

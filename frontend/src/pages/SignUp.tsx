@@ -7,6 +7,16 @@ export function SignUp() {
   const fieldsOfWork = ['Ceramist', 'Jeweller', 'Weaving', 'Blacksmith', 'Carpenter', 'Other'];
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [fieldError, setFieldError] = useState('');
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001';
+  const [name, setName] = useState('');
+  const [vendorName, setVendorName] = useState('');
+  const [email, setEmail] = useState('');
+  const [dob, setDob] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [location, setLocation] = useState('');
+  const [otherField, setOtherField] = useState('');
+  const [submitError, setSubmitError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleFieldToggle = (field: string) => {
     setSelectedFields((current) =>
@@ -16,15 +26,63 @@ export function SignUp() {
     );
   };
 
-  const handleSignUp = (e: FormEvent<HTMLFormElement>) => {
+  const handleSignUp = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (selectedFields.length === 0) {
       setFieldError('Select at least one field of work.');
       return;
     }
+    if (selectedFields.includes('Other') && !otherField.trim()) {
+      setFieldError('Enter your other field of work.');
+      return;
+    }
+    if (!name.trim() || !email.trim() || !dob || !location.trim()) {
+      setSubmitError('Please fill in all required fields.');
+      return;
+    }
     setFieldError('');
-    localStorage.setItem('isAuthenticated', 'true');
-    navigate('/dashboard');
+    setSubmitError('');
+
+    const normalizedFields = selectedFields
+      .filter((field) => field !== 'Other')
+      .concat(selectedFields.includes('Other') ? [otherField.trim()] : [])
+      .filter((field) => field);
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim(),
+          name: name.trim(),
+          dob,
+          vendor_name: vendorName.trim() || null,
+          field_of_work: normalizedFields,
+          location: location.trim(),
+          avatar_url: avatarUrl.trim() || null,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        throw new Error(errorBody.error || 'Unable to create account.');
+      }
+
+      const data = await response.json();
+      localStorage.setItem('isAuthenticated', 'true');
+      localStorage.setItem('user_id', data.id);
+      localStorage.setItem('user_name', data.name);
+      localStorage.setItem('user_email', data.email);
+      if (data.vendor_name) {
+        localStorage.setItem('vendor_name', data.vendor_name);
+      }
+      navigate('/dashboard');
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'Unable to create account.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -54,11 +112,11 @@ export function SignUp() {
               <span className = "required-star" title="Required Field"style={{ color: 'red' }}>  * </span>
               {/* <span className="required-star" title="Required Field"></span> */}
              </label>
-             <input type="text" placeholder="e.g. Eleanor Vance" className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50" required />
+             <input type="text" placeholder="e.g. Eleanor Vance" value={name} onChange={(e) => setName(e.target.value)} className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50" required />
            </div>
            <div className="space-y-2">
              <label className="text-xs font-bold tracking-widest uppercase text-stone-500">VENDOR NAME</label>
-             <input type="text" placeholder="e.g. Master Vendor" className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50" />
+             <input type="text" placeholder="e.g. Master Vendor" value={vendorName} onChange={(e) => setVendorName(e.target.value)} className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50" />
            </div>
           </div>
 
@@ -67,18 +125,18 @@ export function SignUp() {
              <label className="text-xs font-bold tracking-widest uppercase text-stone-500">EMAIL ADDRESS</label>
               <span className = "required-star" title="Required Field"style={{ color: 'red' }}>  * </span>
 
-             <input type="email" placeholder="vendor@example.com" className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50" required />
+             <input type="email" placeholder="vendor@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50" required />
           </div>
           <div className="space-y-2">
              <label className="text-xs font-bold tracking-widest uppercase text-stone-500">DATE OF BIRTH</label>
               <span className = "required-star" title="Required Field"style={{ color: 'red' }}>  * </span>
-             <input type="date" className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm text-stone-500 focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50" required />
+             <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm text-stone-500 focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50" required />
           </div>
         </div>
 
           <div className="space-y-2">
             <label className="text-xs font-bold tracking-widest uppercase text-stone-500">AVATAR URL</label>
-            <input type="url" placeholder="https://example.com/avatar.jpg" className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50" />
+            <input type="url" placeholder="https://example.com/avatar.jpg" value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50" />
           </div>
 
         <div className="space-y-2">
@@ -87,7 +145,10 @@ export function SignUp() {
            <textarea 
              placeholder="Street, City, Postal Code" 
              rows={3}
+             value={location}
+             onChange={(e) => setLocation(e.target.value)}
              className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50 resize-none" 
+             required
            />
         </div>
 
@@ -118,14 +179,21 @@ export function SignUp() {
               <input
                 type="text"
                 placeholder="Describe your craft"
+                value={otherField}
+                onChange={(e) => setOtherField(e.target.value)}
                 className="mt-2 w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50"
               />
             </div>
           )}
         </div>
+        {submitError && (
+          <p className="text-xs font-medium text-red-600" role="alert">
+            {submitError}
+          </p>
+        )}
 
-          <button className="w-full max-w-sm mx-auto block bg-[#A04A25] hover:bg-[#8B3A1C] text-white py-3.5 rounded-sm font-semibold tracking-wider text-sm transition-colors shadow-sm mt-8">
-            CREATE ACCOUNT
+          <button disabled={isSubmitting} className="w-full max-w-sm mx-auto block bg-[#A04A25] hover:bg-[#8B3A1C] text-white py-3.5 rounded-sm font-semibold tracking-wider text-sm transition-colors shadow-sm mt-8 disabled:opacity-70 disabled:cursor-not-allowed">
+            {isSubmitting ? 'CREATING ACCOUNT...' : 'CREATE ACCOUNT'}
           </button>
 
         </form>
