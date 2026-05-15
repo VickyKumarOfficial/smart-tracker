@@ -28,6 +28,15 @@ export function AddItemModal({ onClose }: AddItemModalProps) {
 
           {/* Form */}
           <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); onClose(); }}>
+            <div className="space-y-2">
+              <label className="text-xs font-bold tracking-wider uppercase text-stone-500">IMAGE URL</label>
+              <input 
+                type="url" 
+                placeholder="https://example.com/image.jpg"
+                className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50"
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label className="text-xs font-bold tracking-wider uppercase text-stone-500">PRODUCT NAME</label>
@@ -47,16 +56,7 @@ export function AddItemModal({ onClose }: AddItemModalProps) {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-xs font-bold tracking-wider uppercase text-stone-500">MATERIALS</label>
-              <input 
-                type="text" 
-                placeholder="e.g. Full-grain leather, brass rivets"
-                className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50"
-              />
-            </div>
-
-            <div className="grid grid-cols-[1fr_1fr_1.5fr] gap-6">
+            <div className="grid grid-cols-3 gap-6">
               <div className="space-y-2">
                 <label className="text-xs font-bold tracking-wider uppercase text-stone-500">QTY</label>
                 <input 
@@ -74,12 +74,36 @@ export function AddItemModal({ onClose }: AddItemModalProps) {
                 />
               </div>
               <div className="space-y-2">
+                <label className="text-xs font-bold tracking-wider uppercase text-stone-500">STATUS</label>
+                <select className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50 appearance-none bg-no-repeat bg-[right_1rem_center]" style={{ backgroundImage: 'url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3E%3Cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'m6 8 4 4 4-4\'/%3E%3C/svg%3E")' }}>
+                  <option>Not sold</option>
+                  <option>Sold</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-6">
+              <div className="space-y-2">
                 <label className="text-xs font-bold tracking-wider uppercase text-stone-500">PAYMENT STATUS</label>
                 <select className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50 appearance-none bg-no-repeat bg-[right_1rem_center]" style={{ backgroundImage: 'url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3E%3Cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'m6 8 4 4 4-4\'/%3E%3C/svg%3E")' }}>
-                  <option>In-progress</option>
-                  <option>Completed</option>
                   <option>Pending</option>
+                  <option>Completed</option>
+                  <option>Overdue</option>
                 </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold tracking-wider uppercase text-stone-500">TRANSACTION DATE</label>
+                <input 
+                  type="date" 
+                  className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm text-stone-500 focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold tracking-wider uppercase text-stone-500">DUE DATE</label>
+                <input 
+                  type="date" 
+                  className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm text-stone-500 focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50"
+                />
               </div>
             </div>
           </form>

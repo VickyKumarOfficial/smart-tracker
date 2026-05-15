@@ -23,19 +23,19 @@ export function Account() {
             />
             <div>
               <h2 className="text-2xl font-medium text-stone-900">Eleanor Vance</h2>
-              <p className="text-stone-500">studio@example.com</p>
+              <p className="text-stone-500">vendor@example.com</p>
             </div>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
-              <h3 className="text-sm font-bold tracking-widest text-stone-500 uppercase mb-4">Studio Information</h3>
+              <h3 className="text-sm font-bold tracking-widest text-stone-500 uppercase mb-4">Vendor Information</h3>
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <User className="w-5 h-5 text-stone-400" />
                   <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-500">Studio Name</label>
-                    <div className="text-stone-900 text-sm font-medium">Master Studio</div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-500">Vendor Name</label>
+                    <div className="text-stone-900 text-sm font-medium">Master Vendor</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -49,7 +49,7 @@ export function Account() {
                   <Mail className="w-5 h-5 text-stone-400" />
                   <div>
                     <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-500">Email Address</label>
-                    <div className="text-stone-900 text-sm font-medium">studio@example.com</div>
+                    <div className="text-stone-900 text-sm font-medium">vendor@example.com</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">

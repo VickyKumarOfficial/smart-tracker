@@ -21,12 +21,12 @@ export function Sidebar({ onAddItem }: SidebarProps) {
       <div className="flex items-center gap-3 px-6 py-8">
         <img 
           src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=faces" 
-          alt="Studio Owner" 
+          alt="Vendor Owner" 
           className="w-10 h-10 rounded-full object-cover"
         />
         <div>
           <h1 className="font-semibold text-[#8B3A1C] text-lg leading-tight">Artisan<br/>Ledger</h1>
-          <p className="text-xs text-stone-500 font-medium uppercase tracking-wider">Master Studio</p>
+          <p className="text-xs text-stone-500 font-medium uppercase tracking-wider">Master Vendor</p>
         </div>
       </div>
 

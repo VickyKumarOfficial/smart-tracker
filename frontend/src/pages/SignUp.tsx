@@ -44,32 +44,30 @@ export function SignUp() {
         <div className="text-center mb-10">
           <div className="text-[#8B3A1C] font-semibold text-xl tracking-tight mb-2">Artisan Ledger</div>
           <h1 className="text-3xl font-medium text-stone-900 mb-2">Create Account</h1>
-          <p className="text-stone-500 text-sm">Establish your studio's digital foundation.</p>
+          <p className="text-stone-500 text-sm">Establish your vendor's digital foundation.</p>
         </div>
 
         <form className="space-y-6" onSubmit={handleSignUp}>
-        <div className="grid grid-cols-2 gap-6">
-          <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-6">
+           <div className="space-y-2">
              <label className="text-xs font-bold tracking-widest uppercase text-stone-500">FULL NAME
               <span className = "required-star" title="Required Field"style={{ color: 'red' }}>  * </span>
               {/* <span className="required-star" title="Required Field"></span> */}
              </label>
              <input type="text" placeholder="e.g. Eleanor Vance" className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50" required />
+           </div>
+           <div className="space-y-2">
+             <label className="text-xs font-bold tracking-widest uppercase text-stone-500">VENDOR NAME</label>
+             <input type="text" placeholder="e.g. Master Vendor" className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50" />
+           </div>
           </div>
-          <div className="space-y-2">
-             <label className="text-xs font-bold tracking-widest uppercase text-stone-500">PHONE NUMBER</label>
-               <span className = "required-star" title="Required Field"style={{ color: 'red' }}>  * </span>
-
-             <input type="tel" placeholder="+1 (555) 000-0000" className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50" required />
-          </div>
-        </div>
 
         <div className="grid grid-cols-2 gap-6">
           <div className="space-y-2">
              <label className="text-xs font-bold tracking-widest uppercase text-stone-500">EMAIL ADDRESS</label>
               <span className = "required-star" title="Required Field"style={{ color: 'red' }}>  * </span>
 
-             <input type="email" placeholder="studio@example.com" className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50" required />
+             <input type="email" placeholder="vendor@example.com" className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50" required />
           </div>
           <div className="space-y-2">
              <label className="text-xs font-bold tracking-widest uppercase text-stone-500">DATE OF BIRTH</label>
@@ -78,8 +76,13 @@ export function SignUp() {
           </div>
         </div>
 
+          <div className="space-y-2">
+            <label className="text-xs font-bold tracking-widest uppercase text-stone-500">AVATAR URL</label>
+            <input type="url" placeholder="https://example.com/avatar.jpg" className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50" />
+          </div>
+
         <div className="space-y-2">
-           <label className="text-xs font-bold tracking-widest uppercase text-stone-500">STUDIO ADDRESS</label>
+           <label className="text-xs font-bold tracking-widest uppercase text-stone-500">VENDOR ADDRESS</label>
            <span className = "required-star" title="Required Field"style={{ color: 'red' }}>  * </span>
            <textarea 
              placeholder="Street, City, Postal Code" 

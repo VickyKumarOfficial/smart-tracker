@@ -26,7 +26,7 @@ export function SignIn() {
 
       <h1 className="text-4xl font-medium text-stone-900 mb-4 tracking-tight">Welcome back</h1>
       <p className="text-stone-600 mb-10 leading-relaxed">
-        Enter your details to access your studio workspace and manage your ledger.
+        Enter your details to access your vendor workspace and manage your ledger.
       </p>
 
       <form className="space-y-6" onSubmit={handleSignIn}>
@@ -34,7 +34,7 @@ export function SignIn() {
           <label className="text-xs font-bold tracking-widest uppercase text-stone-500">EMAIL OR USERNAME</label>
           <input 
             type="text" 
-            placeholder="studio@example.com"
+            placeholder="vendor@example.com"
             className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50"
           />
         </div>
