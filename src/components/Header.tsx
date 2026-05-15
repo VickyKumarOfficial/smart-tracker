@@ -44,16 +44,16 @@ export function Header({ onAddItem }: HeaderProps) {
       {/* Right side */}
       <div className="flex items-center gap-6">
         {/* Toggle (Week / Month) */}
-        <div className="flex items-center text-sm font-medium">
+        {/* <div className="flex items-center text-sm font-medium">
           <button className="text-[#A04A25] border-b-2 border-[#A04A25] pb-1 px-1">WEEK</button>
           <button className="text-stone-400 hover:text-stone-600 pb-1 px-3">MONTH</button>
-        </div>
+        </div> */}
 
         {/* Icons */}
-        <div className="flex items-center gap-4 text-stone-500">
+        {/* <div className="flex items-center gap-4 text-stone-500">
           <button className="hover:text-stone-800 transition-colors"><Bell className="w-5 h-5" /></button>
           <button className="hover:text-stone-800 transition-colors"><Calendar className="w-5 h-5" /></button>
-        </div>
+        </div> */}
 
         <button 
           onClick={onAddItem}
