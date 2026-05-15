@@ -1,4 +1,4 @@
-import { Search, Bell, Calendar } from 'lucide-react';
+import { Search, Bell} from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 
 interface HeaderProps {
@@ -47,10 +47,10 @@ export function Header({ onAddItem }: HeaderProps) {
         </div> */}
 
         {/* Icons */}
-        {/* <div className="flex items-center gap-4 text-stone-500">
+        <div className="flex items-center gap-4 text-stone-500">
           <button className="hover:text-stone-800 transition-colors"><Bell className="w-5 h-5" /></button>
-          <button className="hover:text-stone-800 transition-colors"><Calendar className="w-5 h-5" /></button>
-        </div> */}
+          {/* <button className="hover:text-stone-800 transition-colors"><Calendar className="w-5 h-5" /></button> */}
+        </div>
 
         <button 
           onClick={onAddItem}
