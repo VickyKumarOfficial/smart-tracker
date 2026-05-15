@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { LayoutDashboard, History, Bot, Settings, User, HelpCircle, Plus } from 'lucide-react';
 

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { type FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import signupImage from '../assets/signup.webp';
 
 export function SignUp() {
   const navigate = useNavigate();
@@ -15,7 +16,7 @@ export function SignUp() {
     );
   };
 
-  const handleSignUp = (e: React.FormEvent) => {
+  const handleSignUp = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (selectedFields.length === 0) {
       setFieldError('Select at least one field of work.');
@@ -27,14 +28,26 @@ export function SignUp() {
   };
 
   return (
-    <div className="w-full max-w-lg mx-auto py-12">
-      <div className="text-center mb-10">
-        <div className="text-[#8B3A1C] font-semibold text-xl tracking-tight mb-2">Artisan Ledger</div>
-        <h1 className="text-3xl font-medium text-stone-900 mb-2">Create Account</h1>
-        <p className="text-stone-500 text-sm">Establish your studio's digital foundation.</p>
-      </div>
+    <div className="w-full max-w-5xl mx-auto py-12 px-4">
+      <div className="grid gap-10 lg:grid-cols-[1.05fr_1fr] items-start">
+        <div className="hidden lg:block">
+          <div className="relative rounded-xl overflow-hidden bg-stone-100">
+            <img
+              src={signupImage}
+              alt="Artisan tools and materials"
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
 
-      <form className="space-y-6" onSubmit={handleSignUp}>
+        <div className="w-full max-w-lg mx-auto">
+        <div className="text-center mb-10">
+          <div className="text-[#8B3A1C] font-semibold text-xl tracking-tight mb-2">Artisan Ledger</div>
+          <h1 className="text-3xl font-medium text-stone-900 mb-2">Create Account</h1>
+          <p className="text-stone-500 text-sm">Establish your studio's digital foundation.</p>
+        </div>
+
+        <form className="space-y-6" onSubmit={handleSignUp}>
         <div className="grid grid-cols-2 gap-6">
           <div className="space-y-2">
              <label className="text-xs font-bold tracking-widest uppercase text-stone-500">FULL NAME
@@ -108,14 +121,16 @@ export function SignUp() {
           )}
         </div>
 
-        <button className="w-full max-w-sm mx-auto block bg-[#A04A25] hover:bg-[#8B3A1C] text-white py-3.5 rounded-sm font-semibold tracking-wider text-sm transition-colors shadow-sm mt-8">
-          CREATE ACCOUNT
-        </button>
+          <button className="w-full max-w-sm mx-auto block bg-[#A04A25] hover:bg-[#8B3A1C] text-white py-3.5 rounded-sm font-semibold tracking-wider text-sm transition-colors shadow-sm mt-8">
+            CREATE ACCOUNT
+          </button>
 
-      </form>
-      
-      <div className="mt-8 text-center text-sm text-stone-500">
-        Already have an account? <Link to="/signin" className="text-[#8B3A1C] font-semibold hover:underline">Log in</Link>
+        </form>
+        
+        <div className="mt-8 text-center text-sm text-stone-500">
+          Already have an account? <Link to="/signin" className="text-[#8B3A1C] font-semibold hover:underline">Log in</Link>
+        </div>
+        </div>
       </div>
     </div>
   );

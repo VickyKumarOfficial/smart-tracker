@@ -9,10 +9,7 @@ export function Header({ onAddItem }: HeaderProps) {
   const location = useLocation();
   
   // Very simple title logic based on route
-  let title = 'Overview';
-  if (location.pathname.includes('/history')) title = 'Ledger History';
-  if (location.pathname.includes('/assistant')) title = 'AI Assistant';
-  
+
   // Show large title only on certain pages if needed, but the screenshot shows "Overview" as a main page title *below* the header.
   // Actually, looking at the screenshots:
   // "Artisan Ledger" logo text is sometimes in the top left if there's no sidebar (auth).

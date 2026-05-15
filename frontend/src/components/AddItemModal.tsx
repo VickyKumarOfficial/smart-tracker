@@ -96,11 +96,6 @@ export function AddItemModal({ onClose }: AddItemModalProps) {
           </button>
           <button 
             type="submit"
-            onClick={(e) => {
-              // Ensure we aren't clicking an unconnected button if it's outside the form
-              // Oh wait, these buttons are outside the form! Let's just call onClose here.
-              onClose();
-            }}
             className="px-6 py-2.5 text-sm font-semibold tracking-wide border border-transparent bg-[#A04A25] text-white rounded-md hover:bg-[#8B3A1C] shadow-sm transition"
           >
             Save Item
