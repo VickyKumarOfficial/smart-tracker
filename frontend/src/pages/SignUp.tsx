@@ -3,16 +3,23 @@ import { Link, useNavigate } from 'react-router-dom';
 
 export function SignUp() {
   const navigate = useNavigate();
-  const fieldsOfWork = ['Ceramist', 'Jeweller', 'Weaving', 'Blacksmith', 'Carpenter', 'Other'];
+  const fieldsOfWork = ['Ceramist', 'Jeweller', 'Weaving', 'Blacksmith', 'Carpenter', 'Metalworker', 'Glassblower', 'Other'];
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [fieldError, setFieldError] = useState('');
 
   const handleFieldToggle = (field: string) => {
-    setSelectedFields((current) =>
-      current.includes(field)
-        ? current.filter((item) => item !== field)
-        : [...current, field]
-    );
+    setSelectedFields((current) => {
+      if (current.includes(field)) {
+        return current.filter((item) => item !== field);
+      }
+      if (field === 'Other') {
+        return ['Other'];
+      }
+      if (current.includes('Other')) {
+        return [field];
+      }
+      return [...current, field];
+    });
   };
 
   const handleSignUp = (e: FormEvent<HTMLFormElement>) => {
@@ -77,9 +84,9 @@ export function SignUp() {
         </div>
 
         <div className="space-y-3">
-          <label className="text-xs font-bold tracking-widest uppercase text-stone-500">FIELD OF WORK <span className="normal-case tracking-normal font-normal text-stone-400 ml-1">(Select All That Apply)</span></label>
+          <label className="text-xs font-bold tracking-widest uppercase text-stone-500">FIELD OF WORK <span className="normal-case tracking-normal font-normal text-stone-400 ml-1">(Select All That Apply or Only Other)</span></label>
           <span className = "required-star" title="Required Field"style={{ color: 'red' }}>  * </span>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             {fieldsOfWork.map((field) => (
               <label key={field} className="border border-stone-200 rounded-sm px-5 py-4 text-base text-center text-stone-600 bg-white hover:border-[#A04A25] hover:text-[#A04A25] cursor-pointer transition-colors has-[:checked]:border-[#A04A25] has-[:checked]:text-[#A04A25] has-[:checked]:bg-[#FAF5F2]">
                 <input

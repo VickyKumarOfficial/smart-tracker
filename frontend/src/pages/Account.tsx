@@ -1,76 +1,176 @@
-import { LogOut, User, Mail, Briefcase, MapPin } from 'lucide-react';
+import { LogOut, User, Mail, Briefcase, MapPin, Edit2, X, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 
 export function Account() {
   const navigate = useNavigate();
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState({
+    name: 'Eleanor Vance',
+    email: 'studio@example.com',
+    studioName: 'Master Studio',
+    fields: 'Ceramist, Jeweller',
+    location: '123 Artisan Way, Portland, OR',
+  });
 
   const handleSignOut = () => {
     localStorage.removeItem('isAuthenticated');
     navigate('/signin');
   };
 
+  const handleSave = () => {
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+  };
+
   return (
-    <div className="max-w-4xl mx-auto py-8">
-      <h1 className="text-3xl font-medium text-stone-900 mb-8">Account Details</h1>
+    <div className="max-w-6xl mx-auto py-12 px-6">
+      <div className="flex items-center justify-between mb-10">
+        <h1 className="text-5xl font-medium text-stone-900">Account Details</h1>
+        <button
+          onClick={() => setIsEditing(!isEditing)}
+          className="flex items-center gap-2 text-[#A04A25] hover:text-[#8B3A1C] font-semibold px-6 py-3 bg-[#FAF5F2] hover:bg-[#F5E6E0] rounded-lg transition-colors"
+        >
+          <Edit2 className="w-5 h-5" />
+          {isEditing ? 'Cancel' : 'Edit Profile'}
+        </button>
+      </div>
       
-      <div className="bg-white rounded-xl shadow-sm border border-stone-100 overflow-hidden">
-        <div className="p-8">
-          <div className="flex items-center gap-6 mb-8">
-            <img 
-              src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=faces" 
-              alt="Avatar" 
-              className="w-24 h-24 rounded-full object-cover border border-stone-200"
+      <div className="bg-white rounded-xl shadow-md border border-stone-100 overflow-hidden">
+        <div className="p-12">
+          <div className="flex items-center gap-8 mb-12">
+            <img
+              src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=faces"
+              alt="Avatar"
+              className="w-32 h-32 rounded-full object-cover border-2 border-stone-200"
             />
             <div>
-              <h2 className="text-2xl font-medium text-stone-900">Eleanor Vance</h2>
-              <p className="text-stone-500">studio@example.com</p>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="text-4xl font-medium text-stone-900 mb-3 border border-stone-300 rounded-lg px-4 py-2 w-full"
+                />
+              ) : (
+                <h2 className="text-4xl font-medium text-stone-900 mb-3">{formData.name}</h2>
+              )}
+              {isEditing ? (
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="text-lg text-stone-600 border border-stone-300 rounded-lg px-4 py-2 w-full"
+                />
+              ) : (
+                <p className="text-lg text-stone-600">{formData.email}</p>
+              )}
             </div>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             <div>
-              <h3 className="text-sm font-bold tracking-widest text-stone-500 uppercase mb-4">Studio Information</h3>
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <User className="w-5 h-5 text-stone-400" />
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-500">Studio Name</label>
-                    <div className="text-stone-900 text-sm font-medium">Master Studio</div>
+              <h3 className="text-lg font-bold tracking-widest text-stone-500 uppercase mb-8">Studio Information</h3>
+              <div className="space-y-6">
+                <div className="flex items-start gap-4">
+                  <User className="w-6 h-6 text-stone-400 mt-1" />
+                  <div className="flex-1">
+                    <label className="block text-sm font-bold uppercase tracking-wider text-stone-500 mb-2">Studio Name</label>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={formData.studioName}
+                        onChange={(e) => setFormData({ ...formData, studioName: e.target.value })}
+                        className="w-full text-lg text-stone-900 font-medium border border-stone-300 rounded-lg px-4 py-2"
+                      />
+                    ) : (
+                      <div className="text-lg text-stone-900 font-medium">{formData.studioName}</div>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Briefcase className="w-5 h-5 text-stone-400" />
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-500">Field of Work</label>
-                    <div className="text-stone-900 text-sm font-medium">Ceramist, Jeweller</div>
+                <div className="flex items-start gap-4">
+                  <Briefcase className="w-6 h-6 text-stone-400 mt-1" />
+                  <div className="flex-1">
+                    <label className="block text-sm font-bold uppercase tracking-wider text-stone-500 mb-2">Field of Work</label>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={formData.fields}
+                        onChange={(e) => setFormData({ ...formData, fields: e.target.value })}
+                        className="w-full text-lg text-stone-900 font-medium border border-stone-300 rounded-lg px-4 py-2"
+                      />
+                    ) : (
+                      <div className="text-lg text-stone-900 font-medium">{formData.fields}</div>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Mail className="w-5 h-5 text-stone-400" />
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-500">Email Address</label>
-                    <div className="text-stone-900 text-sm font-medium">studio@example.com</div>
+                <div className="flex items-start gap-4">
+                  <Mail className="w-6 h-6 text-stone-400 mt-1" />
+                  <div className="flex-1">
+                    <label className="block text-sm font-bold uppercase tracking-wider text-stone-500 mb-2">Email Address</label>
+                    {isEditing ? (
+                      <input
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        className="w-full text-lg text-stone-900 font-medium border border-stone-300 rounded-lg px-4 py-2"
+                      />
+                    ) : (
+                      <div className="text-lg text-stone-900 font-medium">{formData.email}</div>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <MapPin className="w-5 h-5 text-stone-400" />
-                  <div>
-                    <label className="block text-[10px] font-bold uppercase tracking-wider text-stone-500">Location</label>
-                    <div className="text-stone-900 text-sm font-medium">123 Artisan Way, Portland, OR</div>
+                <div className="flex items-start gap-4">
+                  <MapPin className="w-6 h-6 text-stone-400 mt-1" />
+                  <div className="flex-1">
+                    <label className="block text-sm font-bold uppercase tracking-wider text-stone-500 mb-2">Location</label>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={formData.location}
+                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                        className="w-full text-lg text-stone-900 font-medium border border-stone-300 rounded-lg px-4 py-2"
+                      />
+                    ) : (
+                      <div className="text-lg text-stone-900 font-medium">{formData.location}</div>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
-            
-            <div className="border-t md:border-t-0 md:border-l border-stone-100 md:pl-8 pt-8 md:pt-0">
-              <h3 className="text-sm font-bold tracking-widest text-stone-500 uppercase mb-4">Actions</h3>
-              <button 
-                onClick={handleSignOut}
-                className="flex items-center gap-2 text-red-600 hover:text-red-700 font-medium px-4 py-2 bg-red-50 hover:bg-red-100 rounded-md transition-colors w-full md:w-auto justify-center"
-              >
-                <LogOut className="w-4 h-4" />
-                Sign Out
-              </button>
+
+            <div className="border-t lg:border-t-0 lg:border-l border-stone-100 lg:pl-12 pt-12 lg:pt-0">
+              <h3 className="text-lg font-bold tracking-widest text-stone-500 uppercase mb-8">Actions</h3>
+              <div className="space-y-3">
+                {isEditing && (
+                  <>
+                    <button
+                      onClick={handleSave}
+                      className="flex items-center gap-2 text-white font-semibold px-6 py-3 bg-[#A04A25] hover:bg-[#8B3A1C] rounded-lg transition-colors w-full justify-center"
+                    >
+                      <Check className="w-5 h-5" />
+                      Save Changes
+                    </button>
+                    <button
+                      onClick={handleCancel}
+                      className="flex items-center gap-2 text-stone-600 font-semibold px-6 py-3 bg-stone-100 hover:bg-stone-200 rounded-lg transition-colors w-full justify-center"
+                    >
+                      <X className="w-5 h-5" />
+                      Cancel
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={handleSignOut}
+                  className="flex items-center gap-2 text-red-600 hover:text-red-700 font-semibold px-6 py-3 bg-red-50 hover:bg-red-100 rounded-lg transition-colors w-full justify-center"
+                >
+                  <LogOut className="w-5 h-5" />
+                  Sign Out
+                </button>
+              </div>
             </div>
           </div>
         </div>

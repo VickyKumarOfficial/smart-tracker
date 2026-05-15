@@ -1,10 +1,13 @@
 import { X, ImagePlus } from 'lucide-react';
+import { useState } from 'react';
 
 interface AddItemModalProps {
   onClose: () => void;
 }
 
 export function AddItemModal({ onClose }: AddItemModalProps) {
+  const [typeValue, setTypeValue] = useState('');
+  const [showOtherInput, setShowOtherInput] = useState(false);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-[2px]">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden font-sans animation-fade-in-up">
@@ -30,7 +33,7 @@ export function AddItemModal({ onClose }: AddItemModalProps) {
           <form className="space-y-6" onSubmit={(e) => { e.preventDefault(); onClose(); }}>
             <div className="grid grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-xs font-bold tracking-wider uppercase text-stone-500">PRODUCT NAME</label>
+                <label className="text-xs font-bold tracking-wider uppercase text-stone-500">PRODUCT NAME <span style={{ color: 'red' }}>*</span></label>
                 <input 
                   type="text" 
                   placeholder="e.g. Handcrafted Wallet"
@@ -39,16 +42,32 @@ export function AddItemModal({ onClose }: AddItemModalProps) {
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-bold tracking-wider uppercase text-stone-500">TYPE</label>
-                <select className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50 appearance-none bg-no-repeat bg-[right_1rem_center]" style={{ backgroundImage: 'url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3E%3Cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'m6 8 4 4 4-4\'/%3E%3C/svg%3E")' }}>
-                  <option>Leather Goods</option>
-                  <option>Ceramics</option>
-                  <option>Jewelry</option>
+                <select
+                  value={typeValue}
+                  onChange={(e) => {
+                    setTypeValue(e.target.value);
+                    setShowOtherInput(e.target.value === 'Other');
+                  }}
+                  className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50 appearance-none bg-no-repeat bg-[right_1rem_center]"
+                  style={{ backgroundImage: 'url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3E%3Cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'m6 8 4 4 4-4\'/%3E%3C/svg%3E")' }}>
+                  <option value="">Select a type</option>
+                  <option value="Leather Goods">Leather Goods</option>
+                  <option value="Ceramics">Ceramics</option>
+                  <option value="Jewelry">Jewelry</option>
+                  <option value="Other">Other</option>
                 </select>
+                {showOtherInput && (
+                  <input
+                    type="text"
+                    placeholder="Describe your type"
+                    className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50 mt-2"
+                  />
+                )}
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold tracking-wider uppercase text-stone-500">MATERIALS</label>
+              <label className="text-xs font-bold tracking-wider uppercase text-stone-500">MATERIALS <span style={{ color: 'red' }}>*</span></label>
               <input 
                 type="text" 
                 placeholder="e.g. Full-grain leather, brass rivets"
