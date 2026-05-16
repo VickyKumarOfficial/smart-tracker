@@ -59,7 +59,8 @@ export function Account() {
   const handleSignOut = async () => {
     try {
       await supabase.auth.signOut();
-    } catch {
+    } catch (error) {
+      console.warn('Sign out failed:', error);
     }
     localStorage.removeItem('isAuthenticated');
     localStorage.removeItem('user_id');
