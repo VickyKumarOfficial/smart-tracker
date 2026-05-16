@@ -256,6 +256,14 @@ export function Dashboard() {
     },
     [recentTransactions, paymentFilters]
   );
+  const isProfit = dashboardData.total_profit > 0;
+  const profitPercentage =
+    dashboardData.total_expenses > 0
+      ? (dashboardData.total_profit / dashboardData.total_expenses) * 100
+      : dashboardData.total_profit > 0
+        ? 100
+        : 0;
+  const formattedProfitPercentage = `${profitPercentage > 0 ? '+' : ''}${profitPercentage.toFixed(1)}%`;
 
   return (
     <div className="max-w-6xl mx-auto py-8">
@@ -287,8 +295,16 @@ export function Dashboard() {
           <div>
             <div className="text-4xl font-medium text-stone-900 mb-2">{formatCurrency(dashboardData.total_profit)}</div>
             <div className="flex items-center gap-2">
-              <span className="bg-green-100 text-green-800 text-xs font-bold px-2 py-0.5 rounded flex items-center gap-1">↑ 8.2%</span>
-              <span className="text-xs text-stone-500">vs last week</span>
+              <span
+                className={`text-xs font-bold px-2 py-0.5 rounded ${
+                  isProfit ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                }`}
+              >
+                {formattedProfitPercentage}
+              </span>
+              <span className={`text-xs font-semibold ${isProfit ? 'text-green-700' : 'text-red-700'}`}>
+                {isProfit ? 'PROFIT' : 'LOSS'}
+              </span>
             </div>
           </div>
         </div>
@@ -300,10 +316,7 @@ export function Dashboard() {
           </div>
           <div>
             <div className="text-4xl font-medium text-stone-900 mb-2">{formatCurrency(dashboardData.total_expenses)}</div>
-            <div className="flex items-center gap-2">
-              <span className="bg-stone-100 text-stone-600 text-xs font-bold px-2 py-0.5 rounded flex items-center gap-1">↓ 2.1%</span>
-              <span className="text-xs text-stone-500">vs last week</span>
-            </div>
+            <span className="text-xs text-stone-500">Calculated from total making cost.</span>
           </div>
         </div>
 

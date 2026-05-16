@@ -1,11 +1,13 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, History, Bot, Settings, User, HelpCircle, Plus } from 'lucide-react';
+import { LayoutDashboard, History, Bot, Settings, User, HelpCircle, Plus, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 
 interface SidebarProps {
   onAddItem: () => void;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
-export function Sidebar({ onAddItem }: SidebarProps) {
+export function Sidebar({ onAddItem, isCollapsed, onToggleCollapse }: SidebarProps) {
   const location = useLocation();
   const avatarUrl = localStorage.getItem('avatar_url') || '';
   const userName = localStorage.getItem('user_name') || 'Vendor';
@@ -25,9 +27,22 @@ export function Sidebar({ onAddItem }: SidebarProps) {
   ];
 
   return (
-    <div className="w-64 bg-white border-r border-[#F0EBE6] flex flex-col h-screen font-sans">
+    <aside
+      className={`bg-white border-r border-[#F0EBE6] flex flex-col h-screen font-sans relative transition-all duration-300 ease-in-out ${
+        isCollapsed ? 'w-20' : 'w-64'
+      }`}
+    >
+      <button
+        type="button"
+        onClick={onToggleCollapse}
+        aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        className="absolute top-3 right-3 z-10 h-8 w-8 rounded-md border border-stone-200 bg-white text-stone-600 hover:text-stone-900 hover:bg-stone-50 transition-colors flex items-center justify-center"
+      >
+        {isCollapsed ? <PanelLeftOpen className="w-4 h-4" /> : <PanelLeftClose className="w-4 h-4" />}
+      </button>
+
       {/* Logo */}
-      <div className="flex items-center gap-3 px-6 py-8">
+      <div className={`flex items-center px-6 py-8 transition-all duration-300 ${isCollapsed ? 'justify-center' : 'gap-3'}`}>
         {avatarUrl ? (
           <img
             src={avatarUrl}
@@ -39,28 +54,31 @@ export function Sidebar({ onAddItem }: SidebarProps) {
             {initials}
           </div>
         )}
-        <div>
+        <div className={`transition-all duration-200 origin-left ${isCollapsed ? 'max-w-0 opacity-0 -translate-x-2 overflow-hidden' : 'max-w-[12rem] opacity-100 translate-x-0'}`}>
           <h1 className="font-semibold text-[#8B3A1C] text-lg leading-tight">{userName}<br/></h1>
           <p className="text-xs text-stone-500 font-medium uppercase tracking-wider">{vendorName}</p>
         </div>
       </div>
 
       {/* Main Nav */}
-      <nav className="flex-1 px-4 mt-4 space-y-1">
+      <nav className="flex-1 px-3 mt-4 space-y-1">
         {navItems.map((item) => {
           const isActive = location.pathname.startsWith(item.path);
           return (
             <NavLink
               key={item.name}
               to={item.path}
-              className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors relative ${
+              title={isCollapsed ? item.name : undefined}
+              className={`flex items-center px-4 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 relative ${
                 isActive 
                   ? 'text-[#8B3A1C] bg-[#FAF5F2]' 
                   : 'text-stone-600 hover:bg-stone-50 hover:text-stone-900'
-              }`}
+              } ${isCollapsed ? 'justify-center gap-0' : 'gap-3'}`}
             >
               <item.icon className="w-5 h-5" />
-              {item.name}
+              <span className={`whitespace-nowrap transition-all duration-200 ${isCollapsed ? 'w-0 opacity-0 -translate-x-1 overflow-hidden' : 'w-auto opacity-100 translate-x-0'}`}>
+                {item.name}
+              </span>
               {isActive && (
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#8B3A1C] rounded-l-full" />
               )}
@@ -70,27 +88,41 @@ export function Sidebar({ onAddItem }: SidebarProps) {
       </nav>
 
       {/* Bottom Actions */}
-      <div className="p-4 space-y-4">
+      <div className="p-3 space-y-4">
         {/* ADD ITEM is handled globally usually, but in sidebar on some views? Actually screenshot shows "Add Item" in sidebar and top bar. I will add it here too. */}
         <button 
           onClick={onAddItem}
-          className="w-full bg-[#A04A25] hover:bg-[#8B3A1C] text-white flex items-center justify-center gap-2 py-2.5 rounded-md font-medium transition-colors text-sm shadow-sm"
+          title={isCollapsed ? 'Add Item' : undefined}
+          className={`w-full bg-[#A04A25] hover:bg-[#8B3A1C] text-white flex items-center justify-center py-2.5 rounded-md font-medium transition-all duration-200 text-sm shadow-sm ${isCollapsed ? 'gap-0 px-0' : 'gap-2 px-3'}`}
         >
           <Plus className="w-4 h-4" />
-          ADD ITEM
+          <span className={`whitespace-nowrap transition-all duration-200 ${isCollapsed ? 'w-0 opacity-0 overflow-hidden' : 'w-auto opacity-100'}`}>
+            ADD ITEM
+          </span>
         </button>
 
         <div className="pt-4 border-t border-[#F0EBE6] space-y-1">
-           <NavLink to="/account" className="flex items-center gap-3 px-4 py-2 text-sm text-stone-600 hover:text-stone-900">
+           <NavLink
+             to="/account"
+             title={isCollapsed ? 'Account' : undefined}
+             className={`flex items-center px-4 py-2 text-sm text-stone-600 hover:text-stone-900 transition-all duration-200 ${isCollapsed ? 'justify-center gap-0' : 'gap-3'}`}
+           >
              <User className="w-4 h-4" />
-             Account
+             <span className={`whitespace-nowrap transition-all duration-200 ${isCollapsed ? 'w-0 opacity-0 overflow-hidden' : 'w-auto opacity-100'}`}>
+               Account
+             </span>
            </NavLink>
-           <button className="flex items-center gap-3 px-4 py-2 text-sm text-stone-600 hover:text-stone-900 w-full text-left">
+           <button
+             title={isCollapsed ? 'Help' : undefined}
+             className={`flex items-center px-4 py-2 text-sm text-stone-600 hover:text-stone-900 w-full text-left transition-all duration-200 ${isCollapsed ? 'justify-center gap-0' : 'gap-3'}`}
+           >
              <HelpCircle className="w-4 h-4" />
-             Help
+             <span className={`whitespace-nowrap transition-all duration-200 ${isCollapsed ? 'w-0 opacity-0 overflow-hidden' : 'w-auto opacity-100'}`}>
+               Help
+             </span>
            </button>
         </div>
       </div>
-    </div>
+    </aside>
   );
 }
