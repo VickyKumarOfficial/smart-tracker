@@ -14,12 +14,13 @@ export function SignIn() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  const isGoogleAvatarUrl = (value: string) => value.includes('googleusercontent.com');
+
   const completeLogin = async (session: Session) => {
     const user = session.user;
     if (!user) {
       return;
     }
-    localStorage.setItem('isAuthenticated', 'true');
     localStorage.setItem('user_id', user.id);
     if (user.email) {
       localStorage.setItem('user_email', user.email);
@@ -27,16 +28,12 @@ export function SignIn() {
     const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Vendor';
     const googleAvatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || '';
     localStorage.setItem('user_name', displayName);
-    if (googleAvatarUrl) {
-      localStorage.setItem('avatar_url', googleAvatarUrl);
-    } else {
-      localStorage.removeItem('avatar_url');
-    }
     setIsLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/users/${user.id}`);
       if (response.ok) {
         const profile = await response.json();
+        localStorage.setItem('isAuthenticated', 'true');
         if (profile?.name) {
           localStorage.setItem('user_name', profile.name);
         }
@@ -46,14 +43,37 @@ export function SignIn() {
         if (profile?.location) {
           localStorage.setItem('vendor_location', profile.location);
         }
-        if (!googleAvatarUrl && profile?.avatar_url) {
-          localStorage.setItem('avatar_url', profile.avatar_url);
+        const resolvedAvatarUrl = profile?.avatar_url || googleAvatarUrl;
+        if (resolvedAvatarUrl) {
+          localStorage.setItem('avatar_url', resolvedAvatarUrl);
+        } else {
+          localStorage.removeItem('avatar_url');
+        }
+
+        if (resolvedAvatarUrl && isGoogleAvatarUrl(resolvedAvatarUrl)) {
+          void fetch(`${API_BASE_URL}/api/users/${user.id}/avatar`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ avatar_url: googleAvatarUrl || resolvedAvatarUrl }),
+          })
+            .then((avatarResponse) => (avatarResponse.ok ? avatarResponse.json() : null))
+            .then((avatarProfile) => {
+              if (avatarProfile?.avatar_url) {
+                localStorage.setItem('avatar_url', avatarProfile.avatar_url);
+              }
+            })
+            .catch(() => {
+            });
         }
         navigate('/dashboard');
         return;
       }
       if (response.status === 404) {
-        navigate('/signup');
+        localStorage.removeItem('isAuthenticated');
+        if (googleAvatarUrl) {
+          localStorage.setItem('avatar_url', googleAvatarUrl);
+        }
+        navigate('/signup', { state: { from: 'signin' } });
         return;
       }
       const errorBody = await response.json().catch(() => ({}));

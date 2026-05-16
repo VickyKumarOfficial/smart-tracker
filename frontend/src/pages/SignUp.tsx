@@ -1,9 +1,11 @@
-import { type FormEvent, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { type FormEvent, useEffect, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 
 export function SignUp() {
   const navigate = useNavigate();
+  const routerLocation = useLocation();
+  const isCompletingProfile = (routerLocation.state as { from?: string } | null)?.from === 'signin';
   const fieldsOfWork = ['Ceramist', 'Jeweller', 'Weaving', 'Blacksmith', 'Carpenter', 'Metalworker', 'Glassblower', 'Other'];
   const [selectedFields, setSelectedFields] = useState<string[]>([]);
   const [fieldError, setFieldError] = useState('');
@@ -18,6 +20,45 @@ export function SignUp() {
   const [submitError, setSubmitError] = useState('');
   const [submitNotice, setSubmitNotice] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasExistingSession, setHasExistingSession] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!isMounted) {
+        return;
+      }
+
+      const sessionUser = data.session?.user;
+      if (!sessionUser) {
+        return;
+      }
+
+      setHasExistingSession(true);
+
+      if (sessionUser.email) {
+        setEmail((current) => (current.trim() ? current : sessionUser.email ?? current));
+      }
+
+      const sessionName = sessionUser.user_metadata?.full_name || sessionUser.user_metadata?.name;
+      if (sessionName) {
+        setName((current) => (current.trim() ? current : sessionName));
+      }
+
+      const avatarUrl = sessionUser.user_metadata?.avatar_url || sessionUser.user_metadata?.picture;
+      if (avatarUrl) {
+        localStorage.setItem('avatar_url', avatarUrl);
+      }
+    };
+
+    void loadSession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleFieldToggle = (field: string) => {
     setSelectedFields((current) => {
@@ -36,6 +77,11 @@ export function SignUp() {
 
   const handleSignUp = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const { data: sessionData } = await supabase.auth.getSession();
+    const sessionUser = sessionData.session?.user ?? null;
+    const resolvedEmail = sessionUser?.email ?? email.trim();
+    const requiresPassword = !sessionUser;
+
     if (selectedFields.length === 0) {
       setFieldError('Select at least one field of work.');
       return;
@@ -44,7 +90,7 @@ export function SignUp() {
       setFieldError('Enter your other field of work.');
       return;
     }
-    if (!name.trim() || !email.trim() || !dob || !location.trim() || !password.trim()) {
+    if (!name.trim() || !resolvedEmail || !dob || !location.trim() || (requiresPassword && !password.trim())) {
       setSubmitError('Please fill in all required fields.');
       return;
     }
@@ -59,31 +105,40 @@ export function SignUp() {
 
     setIsSubmitting(true);
     try {
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: email.trim(),
-        password: password.trim(),
-        options: {
-          emailRedirectTo: `${window.location.origin}/signin`,
-        },
-      });
+      let authSession = sessionData.session ?? null;
+      let resolvedUser = sessionUser;
+      let userId = sessionUser?.id ?? null;
 
-      if (authError) {
-        throw new Error(authError.message);
-      }
-
-      const userId = authData.user?.id;
       if (!userId) {
-        throw new Error('Unable to create account.');
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email: resolvedEmail,
+          password: password.trim(),
+          options: {
+            emailRedirectTo: `${window.location.origin}/signin`,
+          },
+        });
+
+        if (authError) {
+          throw new Error(authError.message);
+        }
+
+        userId = authData.user?.id ?? null;
+        if (!userId) {
+          throw new Error('Unable to create account.');
+        }
+
+        resolvedUser = authData.user ?? null;
+        authSession = authData.session ?? null;
       }
 
-      const googleAvatarUrl = authData.user?.user_metadata?.avatar_url || authData.user?.user_metadata?.picture || localStorage.getItem('avatar_url') || null;
+      const googleAvatarUrl = resolvedUser?.user_metadata?.avatar_url || resolvedUser?.user_metadata?.picture || localStorage.getItem('avatar_url') || null;
 
       const response = await fetch(`${API_BASE_URL}/api/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           id: userId,
-          email: email.trim(),
+          email: resolvedEmail,
           name: name.trim(),
           dob,
           vendor_name: vendorName.trim() || null,
@@ -93,22 +148,24 @@ export function SignUp() {
         }),
       });
 
+      const responseBody = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const errorBody = await response.json().catch(() => ({}));
-        throw new Error(errorBody.error || 'Unable to create vendor profile.');
+        throw new Error(responseBody.error || 'Unable to create vendor profile.');
       }
 
-      if (authData.session) {
+      const resolvedAvatarUrl = responseBody?.avatar_url || googleAvatarUrl;
+
+      if (authSession) {
         localStorage.setItem('isAuthenticated', 'true');
         localStorage.setItem('user_id', userId);
         localStorage.setItem('user_name', name.trim());
-        localStorage.setItem('user_email', email.trim());
+        localStorage.setItem('user_email', resolvedEmail);
         if (vendorName.trim()) {
           localStorage.setItem('vendor_name', vendorName.trim());
         }
         localStorage.setItem('vendor_location', location.trim());
-        if (googleAvatarUrl) {
-          localStorage.setItem('avatar_url', googleAvatarUrl);
+        if (resolvedAvatarUrl) {
+          localStorage.setItem('avatar_url', resolvedAvatarUrl);
         }
         navigate('/dashboard');
         return;
@@ -132,6 +189,12 @@ export function SignUp() {
           <p className="text-stone-500 text-sm">Establish your vendor's digital foundation.</p>
         </div>
 
+        {isCompletingProfile && (
+          <p className="text-sm text-stone-600 bg-[#FAF5F2] border border-stone-200 rounded-sm px-4 py-3 mb-6">
+            Complete your profile to finish signing in.
+          </p>
+        )}
+
         <form className="space-y-6" onSubmit={handleSignUp}>
           <div className="grid grid-cols-2 gap-6">
            <div className="space-y-2">
@@ -153,7 +216,15 @@ export function SignUp() {
              <label className="text-xs font-bold tracking-widest uppercase text-stone-500">EMAIL ADDRESS</label>
               <span className = "required-star" title="Required Field"style={{ color: 'red' }}>  * </span>
 
-             <input type="email" placeholder="vendor@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50" required />
+             <input
+               type="email"
+               placeholder="vendor@example.com"
+               value={email}
+               onChange={(e) => setEmail(e.target.value)}
+               readOnly={hasExistingSession}
+               className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50"
+               required
+             />
           </div>
           <div className="space-y-2">
              <label className="text-xs font-bold tracking-widest uppercase text-stone-500">DATE OF BIRTH</label>
@@ -162,11 +233,13 @@ export function SignUp() {
           </div>
         </div>
 
-          <div className="space-y-2">
-            <label className="text-xs font-bold tracking-widest uppercase text-stone-500">PASSWORD</label>
-            <span className = "required-star" title="Required Field"style={{ color: 'red' }}>  * </span>
-            <input type="password" placeholder="Create a password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50" required />
-          </div>
+          {!hasExistingSession && (
+            <div className="space-y-2">
+              <label className="text-xs font-bold tracking-widest uppercase text-stone-500">PASSWORD</label>
+              <span className = "required-star" title="Required Field"style={{ color: 'red' }}>  * </span>
+              <input type="password" placeholder="Create a password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full border border-stone-200 rounded-sm px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50" required />
+            </div>
+          )}
 
         <div className="space-y-2">
            <label className="text-xs font-bold tracking-widest uppercase text-stone-500">VENDOR ADDRESS</label>
