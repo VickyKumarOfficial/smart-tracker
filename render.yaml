@@ -1,10 +1,40 @@
 services:
+  # ─── Backend Service ────────────────────────────────────────────────────────
+  - type: web
+    name: smart-tracker-backend
+    env: node
+    plan: free
+    rootDirectory: backend  # <--- This tells Render to look only in the /backend folder
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 3001
+      - key: NODE_ENV
+        value: production
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: NVIDIA_API_KEY
+        sync: false
+
+  # ─── Frontend Service ───────────────────────────────────────────────────────
   - type: web
     name: smart-tracker-frontend
-    buildCommand: cd frontend && npm install && npm run build
-    startCommand: cd frontend && npm start
+    env: node
+    plan: free
+    rootDirectory: frontend # <--- This tells Render to look only in the /frontend folder
+    buildCommand: npm install && npm run build
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 5173
+      - key: VITE_SUPABASE_URL
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY
+        sync: false
+      - key: VITE_BACKEND_URL
+        sync: false
