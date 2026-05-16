@@ -266,6 +266,40 @@ app.get('/api/products', asyncHandler(async (req, res) => {
   return res.json(data);
 }));
 
+app.delete('/api/products/:id', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const userId = req.query.user_id || req.body?.user_id;
+
+  if (!id || !userId) {
+    return res.status(400).json({ error: 'product id and user_id are required.' });
+  }
+
+  const { error: transactionsError } = await supabase
+    .from('transactions')
+    .delete()
+    .eq('product_id', id)
+    .eq('user_id', userId);
+
+  if (transactionsError) {
+    return res.status(400).json({ error: transactionsError.message });
+  }
+
+  const { data, error } = await supabase
+    .from('products')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId)
+    .select('id')
+    .single();
+
+  if (error) {
+    const status = error.code === 'PGRST116' ? 404 : 400;
+    return res.status(status).json({ error: error.message });
+  }
+
+  return res.json({ id: data.id });
+}));
+
 app.post('/api/transactions', asyncHandler(async (req, res) => {
   const { user_id, product_id, amount, payment_status, transaction_date, due_date } = req.body || {};
 
@@ -311,6 +345,30 @@ app.get('/api/transactions', asyncHandler(async (req, res) => {
   }
 
   return res.json(data);
+}));
+
+app.delete('/api/transactions/:id', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const userId = req.query.user_id || req.body?.user_id;
+
+  if (!id || !userId) {
+    return res.status(400).json({ error: 'transaction id and user_id are required.' });
+  }
+
+  const { data, error } = await supabase
+    .from('transactions')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', userId)
+    .select('id')
+    .single();
+
+  if (error) {
+    const status = error.code === 'PGRST116' ? 404 : 400;
+    return res.status(status).json({ error: error.message });
+  }
+
+  return res.json({ id: data.id });
 }));
 
 app.get('/api/dashboard', asyncHandler(async (req, res) => {

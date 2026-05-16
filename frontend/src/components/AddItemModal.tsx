@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, ImagePlus } from 'lucide-react';
+import { ImagePlus, X } from 'lucide-react';
 
 interface AddItemModalProps {
   onClose: () => void;
@@ -8,7 +8,6 @@ interface AddItemModalProps {
 
 export function AddItemModal({ onClose, onItemAdded }: AddItemModalProps) {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001';
-  const [imageUrl, setImageUrl] = useState('');
   const [name, setName] = useState('');
   const [type, setType] = useState('Leather Goods');
   const [customType, setCustomType] = useState('');
@@ -65,7 +64,6 @@ export function AddItemModal({ onClose, onItemAdded }: AddItemModalProps) {
           transaction_date: transactionDate,
           due_date: dueDate || null,
           status,
-          image_url: imageUrl.trim() || null,
         }),
       });
 
@@ -104,40 +102,28 @@ export function AddItemModal({ onClose, onItemAdded }: AddItemModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/40 backdrop-blur-[2px]">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden font-sans animation-fade-in-up">
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-stone-900/40 p-3 backdrop-blur-[2px] sm:items-center sm:p-4">
+      <div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl min-w-0 flex-col overflow-hidden rounded-xl bg-white font-sans shadow-2xl animation-fade-in-up sm:max-h-[calc(100dvh-2rem)]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100">
-          <h3 className="text-xl font-medium text-stone-900">Add New Item</h3>
-          <button onClick={onClose} className="text-stone-400 hover:text-stone-700 transition">
+        <div className="flex items-center justify-between gap-3 border-b border-stone-100 px-4 py-4 sm:px-6">
+          <h3 className="text-lg font-medium text-stone-900 sm:text-xl">Add New Item</h3>
+          <button onClick={onClose} className="shrink-0 rounded-md p-1 text-stone-400 transition hover:bg-stone-100 hover:text-stone-700" aria-label="Close add item modal">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-8 space-y-8">
-          
+        <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6 lg:p-8">
           {/* Upload Area */}
-          <div className="border border-dashed border-[#D5B5A8] rounded-xl bg-[#FDFBF9] flex flex-col items-center justify-center py-12 text-center cursor-pointer transition-colors hover:bg-[#FAF5F2]">
-            <ImagePlus className="w-8 h-8 text-[#A04A25] mb-4" />
-            <p className="text-sm text-stone-700 font-medium mb-1">Click to upload or drag and drop</p>
-            <p className="text-xs text-stone-500 uppercase tracking-widest font-semibold">SVG, PNG, JPG OR GIF (MAX. 800x400PX)</p>
+          <div className="mb-5 flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-[#D5B5A8] bg-[#FDFBF9] px-4 py-8 text-center transition-colors hover:bg-[#FAF5F2] sm:mb-8 sm:py-12">
+            <ImagePlus className="mb-4 h-8 w-8 text-[#A04A25]" />
+            <p className="mb-1 text-sm font-medium text-stone-700">Click to upload or drag and drop</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-stone-500">SVG, PNG, JPG OR GIF (MAX. 800x400PX)</p>
           </div>
 
           {/* Form */}
-          <form id="add-item-form" className="space-y-6" onSubmit={handleSubmit}>
-            <div className="space-y-2">
-              <label className="text-xs font-bold tracking-wider uppercase text-stone-500">IMAGE URL</label>
-              <input 
-                type="url" 
-                placeholder="https://example.com/image.jpg"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-6">
+          <form id="add-item-form" className="space-y-5 sm:space-y-6" onSubmit={handleSubmit}>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6">
               <div className="space-y-2">
                 <label className="text-xs font-bold tracking-wider uppercase text-stone-500">PRODUCT NAME <span style={{ color: 'red' }}>*</span></label>
                 <input 
@@ -182,7 +168,7 @@ export function AddItemModal({ onClose, onItemAdded }: AddItemModalProps) {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
               <div className="space-y-2">
                 <label className="text-xs font-bold tracking-wider uppercase text-stone-500">QTY</label>
                 <input 
@@ -219,7 +205,7 @@ export function AddItemModal({ onClose, onItemAdded }: AddItemModalProps) {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3">
               <div className="space-y-2">
                 <label className="text-xs font-bold tracking-wider uppercase text-stone-500">PAYMENT STATUS</label>
                 <select value={paymentStatus} onChange={(e) => setPaymentStatus(e.target.value)} className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50 appearance-none bg-no-repeat bg-[right_1rem_center]" style={{ backgroundImage: 'url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 20 20\'%3E%3Cpath stroke=\'%236b7280\' stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'m6 8 4 4 4-4\'/%3E%3C/svg%3E")' }}>
@@ -257,10 +243,10 @@ export function AddItemModal({ onClose, onItemAdded }: AddItemModalProps) {
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-stone-100 flex items-center justify-end gap-3 bg-stone-50/30">
+        <div className="flex flex-col-reverse gap-3 border-t border-stone-100 bg-stone-50/30 px-4 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-6">
           <button 
             onClick={onClose}
-            className="px-6 py-2.5 text-sm font-semibold tracking-wide uppercase text-stone-600 hover:bg-stone-100 rounded-md transition"
+            className="w-full rounded-md px-6 py-2.5 text-sm font-semibold uppercase tracking-wide text-stone-600 transition hover:bg-stone-100 sm:w-auto"
           >
             CANCEL
           </button>
@@ -268,7 +254,7 @@ export function AddItemModal({ onClose, onItemAdded }: AddItemModalProps) {
             form="add-item-form"
             type="submit"
             disabled={isSubmitting}
-            className="px-6 py-2.5 text-sm font-semibold tracking-wide border border-transparent bg-[#A04A25] text-white rounded-md hover:bg-[#8B3A1C] shadow-sm transition"
+            className="w-full rounded-md border border-transparent bg-[#A04A25] px-6 py-2.5 text-sm font-semibold tracking-wide text-white shadow-sm transition hover:bg-[#8B3A1C] disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto"
           >
             {isSubmitting ? 'Saving...' : 'Save Item'}
           </button>

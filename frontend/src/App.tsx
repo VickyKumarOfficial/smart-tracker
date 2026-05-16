@@ -12,6 +12,7 @@ import { Dashboard } from './pages/Dashboard';
 import { History } from './pages/History';
 import { AIAssistant } from './pages/AIAssistant';
 import { Account } from './pages/Account';
+import { Settings } from './pages/Settings';
 
 const ProtectedRoute = () => {
   const isAuth = localStorage.getItem('isAuthenticated') === 'true';
@@ -32,7 +33,7 @@ export default function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/history" element={<History />} />
           <Route path="/assistant" element={<AIAssistant />} />
-          <Route path="/settings" element={<div className="max-w-4xl mx-auto py-8"><h1 className="text-3xl font-medium text-stone-900 mb-8">Settings</h1><p className="text-stone-500 bg-white p-6 rounded-xl border border-stone-100 shadow-sm">Settings page coming soon.</p></div>} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="/account" element={<Account />} />
         </Route>
       </Routes>
