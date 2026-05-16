@@ -55,7 +55,7 @@ export function Sidebar({ onAddItem, isCollapsed, onToggleCollapse }: SidebarPro
           </div>
         )}
         <div className={`transition-all duration-200 origin-left ${isCollapsed ? 'max-w-0 opacity-0 -translate-x-2 overflow-hidden' : 'max-w-[12rem] opacity-100 translate-x-0'}`}>
-          <h1 className="font-semibold text-[#8B3A1C] text-lg leading-tight">Artisan<br/>Ledger</h1>
+          <h1 className="font-semibold text-[#8B3A1C] text-lg leading-tight">{userName}<br/></h1>
           <p className="text-xs text-stone-500 font-medium uppercase tracking-wider">{vendorName}</p>
         </div>
       </div>
