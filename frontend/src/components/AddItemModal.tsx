@@ -3,9 +3,10 @@ import { X, ImagePlus } from 'lucide-react';
 
 interface AddItemModalProps {
   onClose: () => void;
+  onItemAdded?: () => void;
 }
 
-export function AddItemModal({ onClose }: AddItemModalProps) {
+export function AddItemModal({ onClose, onItemAdded }: AddItemModalProps) {
   const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001';
   const [imageUrl, setImageUrl] = useState('');
   const [name, setName] = useState('');
@@ -13,6 +14,7 @@ export function AddItemModal({ onClose }: AddItemModalProps) {
   const [customType, setCustomType] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [price, setPrice] = useState('0.00');
+  const [makingCost, setMakingCost] = useState('0.00');
   const [status, setStatus] = useState('not_sold');
   const [paymentStatus, setPaymentStatus] = useState('pending');
   const [transactionDate, setTransactionDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -45,6 +47,7 @@ export function AddItemModal({ onClose }: AddItemModalProps) {
 
     const parsedQuantity = Number(quantity) || 1;
     const parsedPrice = Number(price) || 0;
+    const parsedMakingCost = Number(makingCost) || 0;
     const resolvedType = type === 'Other' ? (customType.trim() || 'Other') : type;
 
     setIsSubmitting(true);
@@ -58,6 +61,9 @@ export function AddItemModal({ onClose }: AddItemModalProps) {
           type: resolvedType,
           quantity: parsedQuantity,
           price: parsedPrice,
+          making_cost: parsedMakingCost,
+          transaction_date: transactionDate,
+          due_date: dueDate || null,
           status,
           image_url: imageUrl.trim() || null,
         }),
@@ -88,6 +94,7 @@ export function AddItemModal({ onClose }: AddItemModalProps) {
         throw new Error(errorBody.error || 'Unable to save transaction.');
       }
 
+      onItemAdded?.();
       onClose();
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Unable to save item.');
@@ -175,7 +182,7 @@ export function AddItemModal({ onClose }: AddItemModalProps) {
               />
             </div>
 
-            <div className="grid grid-cols-[1fr_1fr_1.5fr] gap-6">
+            <div className="grid grid-cols-2 gap-6 md:grid-cols-4">
               <div className="space-y-2">
                 <label className="text-xs font-bold tracking-wider uppercase text-stone-500">QTY</label>
                 <input 
@@ -191,6 +198,15 @@ export function AddItemModal({ onClose }: AddItemModalProps) {
                   type="text" 
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
+                  className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold tracking-wider uppercase text-stone-500">MAKING COST ($)</label>
+                <input
+                  type="text"
+                  value={makingCost}
+                  onChange={(e) => setMakingCost(e.target.value)}
                   className="w-full border border-stone-200 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#A04A25] focus:border-[#A04A25] bg-stone-50/50"
                 />
               </div>

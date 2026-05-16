@@ -6,12 +6,20 @@ import { supabase } from '../lib/supabaseClient';
 export function Account() {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
+  const avatarUrl = localStorage.getItem('avatar_url') || '';
+  const storedUserName = localStorage.getItem('user_name') || 'Vendor';
+  const initials = storedUserName
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('') || 'V';
   const [formData, setFormData] = useState({
-    name: 'Eleanor Vance',
-    email: 'studio@example.com',
-    studioName: 'Master Studio',
+    name: localStorage.getItem('user_name') || 'Vendor',
+    email: localStorage.getItem('user_email') || 'vendor@example.com',
+    studioName: localStorage.getItem('vendor_name') || 'Master Studio',
     fields: 'Ceramist, Jeweller',
-    location: '123 Artisan Way, Portland, OR',
+    location: localStorage.getItem('vendor_location') || '-',
   });
 
   const handleSignOut = async () => {
@@ -53,11 +61,17 @@ export function Account() {
       <div className="bg-white rounded-xl shadow-md border border-stone-100 overflow-hidden">
         <div className="p-12">
           <div className="flex items-center gap-8 mb-12">
-            <img
-              src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=faces"
-              alt="Avatar"
-              className="w-32 h-32 rounded-full object-cover border-2 border-stone-200"
-            />
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt="Avatar"
+                className="w-32 h-32 rounded-full object-cover border-2 border-stone-200"
+              />
+            ) : (
+              <div className="w-32 h-32 rounded-full border-2 border-stone-200 bg-stone-100 text-stone-700 text-3xl font-semibold flex items-center justify-center">
+                {initials}
+              </div>
+            )}
             <div>
               {isEditing ? (
                 <input

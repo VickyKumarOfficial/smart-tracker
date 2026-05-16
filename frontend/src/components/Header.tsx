@@ -7,6 +7,14 @@ interface HeaderProps {
 
 export function Header({ onAddItem }: HeaderProps) {
   const location = useLocation();
+  const avatarUrl = localStorage.getItem('avatar_url') || '';
+  const userName = localStorage.getItem('user_name') || 'Vendor';
+  const initials = userName
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('') || 'V';
   
   // Very simple title logic based on route
 
@@ -59,11 +67,17 @@ export function Header({ onAddItem }: HeaderProps) {
           Add Item
         </button>
 
-        <img 
-          src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=faces" 
-          alt="Avatar" 
-          className="w-8 h-8 rounded-full ml-2 object-cover border border-stone-200"
-        />
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt="Avatar"
+            className="w-8 h-8 rounded-full ml-2 object-cover border border-stone-200"
+          />
+        ) : (
+          <div className="w-8 h-8 rounded-full ml-2 border border-stone-200 bg-stone-100 text-stone-700 text-xs font-semibold flex items-center justify-center">
+            {initials}
+          </div>
+        )}
       </div>
     </header>
   );

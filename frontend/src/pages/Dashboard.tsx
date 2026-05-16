@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { TrendingUp, TrendingDown, AlertTriangle, Filter } from 'lucide-react';
+import { useOutletContext } from 'react-router-dom';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001';
 
@@ -43,10 +44,12 @@ type CatalogEntry = {
   material: string | null;
   quantity: number | null;
   price: number | null;
+  making_cost: number | null;
   created_at: string | null;
 };
 
 export function Dashboard() {
+  const { refreshKey } = useOutletContext<{ refreshKey: number }>();
   const [dashboardData, setDashboardData] = useState<{
     total_profit: number;
     total_expenses: number;
@@ -76,6 +79,8 @@ export function Dashboard() {
     const controller = new AbortController();
 
     const loadDashboard = async () => {
+      setIsLoading(true);
+      setLoadError('');
       try {
         const response = await fetch(`${API_BASE_URL}/api/dashboard?user_id=${userId}`, {
           signal: controller.signal,
@@ -106,7 +111,7 @@ export function Dashboard() {
     loadDashboard();
 
     return () => controller.abort();
-  }, []);
+  }, [refreshKey]);
 
   const recentTransactions = dashboardData.recent_transactions;
   const catalogHistory = dashboardData.catalog_history;
@@ -198,13 +203,14 @@ export function Dashboard() {
                 <th className="px-6 py-4 font-bold">QUANTITY</th>
                 <th className="px-6 py-4 font-bold">NAME</th>
                 <th className="px-6 py-4 font-bold">PRICE</th>
+                <th className="px-6 py-4 font-bold">MAKING COST</th>
                 <th className="px-6 py-4 font-bold text-right">TIME</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
               {catalogHistory.length === 0 ? (
                 <tr>
-                  <td className="px-6 py-6 text-sm text-stone-500" colSpan={6}>
+                  <td className="px-6 py-6 text-sm text-stone-500" colSpan={7}>
                     No catalog entries yet.
                   </td>
                 </tr>
@@ -216,6 +222,7 @@ export function Dashboard() {
                     <td className="px-6 py-5">{entry.quantity ?? '-'}</td>
                     <td className="px-6 py-5">{entry.name}</td>
                     <td className="px-6 py-5">{entry.price == null ? '-' : formatCurrency(entry.price)}</td>
+                    <td className="px-6 py-5">{entry.making_cost == null ? '-' : formatCurrency(entry.making_cost)}</td>
                     <td className="px-6 py-5 text-right text-stone-500">{formatTime(entry.created_at)}</td>
                   </tr>
                 ))

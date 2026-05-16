@@ -25,11 +25,30 @@ export function SignIn() {
       localStorage.setItem('user_email', user.email);
     }
     const displayName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Vendor';
+    const googleAvatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture || '';
     localStorage.setItem('user_name', displayName);
+    if (googleAvatarUrl) {
+      localStorage.setItem('avatar_url', googleAvatarUrl);
+    } else {
+      localStorage.removeItem('avatar_url');
+    }
     setIsLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/users/${user.id}`);
       if (response.ok) {
+        const profile = await response.json();
+        if (profile?.name) {
+          localStorage.setItem('user_name', profile.name);
+        }
+        if (profile?.vendor_name) {
+          localStorage.setItem('vendor_name', profile.vendor_name);
+        }
+        if (profile?.location) {
+          localStorage.setItem('vendor_location', profile.location);
+        }
+        if (!googleAvatarUrl && profile?.avatar_url) {
+          localStorage.setItem('avatar_url', profile.avatar_url);
+        }
         navigate('/dashboard');
         return;
       }

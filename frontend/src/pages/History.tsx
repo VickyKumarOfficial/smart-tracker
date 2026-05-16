@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Filter } from 'lucide-react';
+import { useOutletContext } from 'react-router-dom';
+import { supabase } from '../lib/supabaseClient';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3001';
 
@@ -37,6 +39,7 @@ type TransactionRow = {
   product: string;
   initials: string;
   amount: number;
+  makingCost: number | null;
   date: string | null;
   status: string | null;
   badgeClass: string;
@@ -45,6 +48,7 @@ type TransactionRow = {
 type ProductRecord = {
   id: string;
   name: string;
+  making_cost: number | null;
 };
 
 type TransactionRecord = {
@@ -55,8 +59,21 @@ type TransactionRecord = {
   payment_status: string;
 };
 
+type CatalogRow = {
+  id: string;
+  name: string;
+  type: string | null;
+  quantity: number;
+  price: number | null;
+  makingCost: number | null;
+  dueDate: string | null;
+};
+
 export function History() {
+  const { refreshKey } = useOutletContext<{ refreshKey: number }>();
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
+  const [catalog, setCatalog] = useState<CatalogRow[]>([]);
+  const [activeTab, setActiveTab] = useState<'payments' | 'catalog'>('payments');
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
@@ -69,8 +86,11 @@ export function History() {
     }
 
     const controller = new AbortController();
+    let subscription: any = null;
 
     const loadTransactions = async () => {
+      setIsLoading(true);
+      setLoadError('');
       try {
         const [transactionsResponse, productsResponse] = await Promise.all([
           fetch(`${API_BASE_URL}/api/transactions?user_id=${userId}`, { signal: controller.signal }),
@@ -89,17 +109,19 @@ export function History() {
 
         const transactionsData = (await transactionsResponse.json()) as TransactionRecord[];
         const productsData = (await productsResponse.json()) as ProductRecord[];
-        const productMap = new Map<string, string>(
-          (productsData || []).map((product) => [product.id, product.name])
+        const productMap = new Map<string, ProductRecord>(
+          (productsData || []).map((product) => [product.id, product])
         );
 
         const mapped = (transactionsData || []).map((tx) => {
-          const productName = String(productMap.get(tx.product_id) ?? 'Product');
+          const product = productMap.get(tx.product_id);
+          const productName = String(product?.name ?? 'Product');
           return {
             id: tx.id,
             product: productName,
             initials: toInitials(productName),
             amount: Number(tx.amount) || 0,
+            makingCost: product?.making_cost ?? null,
             date: tx.transaction_date,
             status: statusLabel(tx.payment_status),
             badgeClass: statusClassName(tx.payment_status),
@@ -107,6 +129,105 @@ export function History() {
         });
 
         setTransactions(mapped);
+
+        // Build catalog from products
+        const catalogRows = (productsData || []).map((product: any) => ({
+          id: product.id,
+          name: product.name,
+          type: product.type,
+          quantity: Number(product.quantity) || 0,
+          price: product.price ? Number(product.price) : null,
+          makingCost: product.making_cost ? Number(product.making_cost) : null,
+          dueDate: product.due_date,
+        }));
+
+        setCatalog(catalogRows);
+
+        // Setup real-time subscriptions
+        const productsSubscription = supabase
+          .channel(`products:${userId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'products',
+              filter: `user_id=eq.${userId}`,
+            },
+            async () => {
+              // Refetch products on any change
+              try {
+                const response = await fetch(`${API_BASE_URL}/api/products?user_id=${userId}`);
+                if (response.ok) {
+                  const updatedProducts = (await response.json()) as ProductRecord[];
+                  const updatedCatalogRows = (updatedProducts || []).map((product: any) => ({
+                    id: product.id,
+                    name: product.name,
+                    type: product.type,
+                    quantity: Number(product.quantity) || 0,
+                    price: product.price ? Number(product.price) : null,
+                    makingCost: product.making_cost ? Number(product.making_cost) : null,
+                    dueDate: product.due_date,
+                  }));
+                  setCatalog(updatedCatalogRows);
+                }
+              } catch (error) {
+                console.error('Error updating catalog on realtime change:', error);
+              }
+            }
+          )
+          .subscribe();
+
+        const transactionsSubscription = supabase
+          .channel(`transactions:${userId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'transactions',
+              filter: `user_id=eq.${userId}`,
+            },
+            async () => {
+              // Refetch both transactions and products on transaction changes
+              try {
+                const [txResponse, prodResponse] = await Promise.all([
+                  fetch(`${API_BASE_URL}/api/transactions?user_id=${userId}`),
+                  fetch(`${API_BASE_URL}/api/products?user_id=${userId}`),
+                ]);
+
+                if (txResponse.ok && prodResponse.ok) {
+                  const updatedTransactions = (await txResponse.json()) as TransactionRecord[];
+                  const updatedProducts = (await prodResponse.json()) as ProductRecord[];
+                  const productMap = new Map<string, ProductRecord>(
+                    (updatedProducts || []).map((product) => [product.id, product])
+                  );
+
+                  const mappedTransactions = (updatedTransactions || []).map((tx) => {
+                    const product = productMap.get(tx.product_id);
+                    const productName = String(product?.name ?? 'Product');
+                    return {
+                      id: tx.id,
+                      product: productName,
+                      initials: toInitials(productName),
+                      amount: Number(tx.amount) || 0,
+                      makingCost: product?.making_cost ?? null,
+                      date: tx.transaction_date,
+                      status: statusLabel(tx.payment_status),
+                      badgeClass: statusClassName(tx.payment_status),
+                    };
+                  });
+
+                  setTransactions(mappedTransactions);
+                }
+              } catch (error) {
+                console.error('Error updating transactions on realtime change:', error);
+              }
+            }
+          )
+          .subscribe();
+
+        subscription = { productsSubscription, transactionsSubscription };
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
           return;
@@ -119,8 +240,14 @@ export function History() {
 
     loadTransactions();
 
-    return () => controller.abort();
-  }, []);
+    return () => {
+      controller.abort();
+      if (subscription) {
+        subscription.productsSubscription?.unsubscribe();
+        subscription.transactionsSubscription?.unsubscribe();
+      }
+    };
+  }, [refreshKey]);
 
   return (
     <div className="max-w-6xl mx-auto py-8">
@@ -137,57 +264,126 @@ export function History() {
       
       {/* Tabs */}
       <div className="flex border-b border-stone-200 mb-8 items-center gap-8">
-        <button className="text-xs font-bold tracking-widest uppercase text-[#8B3A1C] border-b-2 border-[#8B3A1C] pb-3 px-2">PAYMENTS</button>
-        <button className="text-xs font-bold tracking-widest uppercase text-stone-400 hover:text-stone-600 pb-3 px-2">CATALOG</button>
+        <button 
+          onClick={() => setActiveTab('payments')}
+          className={`text-xs font-bold tracking-widest uppercase pb-3 px-2 ${
+            activeTab === 'payments'
+              ? 'text-[#8B3A1C] border-b-2 border-[#8B3A1C]'
+              : 'text-stone-400 hover:text-stone-600'
+          }`}
+        >
+          PAYMENTS
+        </button>
+        <button 
+          onClick={() => setActiveTab('catalog')}
+          className={`text-xs font-bold tracking-widest uppercase pb-3 px-2 ${
+            activeTab === 'catalog'
+              ? 'text-[#8B3A1C] border-b-2 border-[#8B3A1C]'
+              : 'text-stone-400 hover:text-stone-600'
+          }`}
+        >
+          CATALOG
+        </button>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-stone-100 overflow-hidden">
-        <div className="p-6 flex items-center justify-between border-b border-stone-100">
-          <h2 className="text-xl font-medium text-stone-900">Recent Transactions</h2>
-          <button className="flex items-center gap-2 text-sm font-medium text-stone-600 hover:text-stone-900 border border-stone-200 rounded-md px-3 py-1.5 hover:bg-stone-50">
-            <Filter className="w-4 h-4" />
-            FILTER
-          </button>
-        </div>
-        
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="border-b border-stone-100 text-xs font-bold tracking-widest uppercase text-stone-500">
-              <th className="px-6 py-4 font-bold">PRODUCT</th>
-              <th className="px-6 py-4 font-bold">AMOUNT</th>
-              <th className="px-6 py-4 font-bold">DATE</th>
-              <th className="px-6 py-4 font-bold text-right">STATUS</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-stone-100">
-            {transactions.length === 0 ? (
-              <tr>
-                <td className="px-6 py-6 text-sm text-stone-500" colSpan={4}>
-                  No transactions yet.
-                </td>
+      {/* Payments Table */}
+      {activeTab === 'payments' && (
+        <div className="bg-white rounded-xl shadow-sm border border-stone-100 overflow-hidden">
+          <div className="p-6 flex items-center justify-between border-b border-stone-100">
+            <h2 className="text-xl font-medium text-stone-900">Recent Transactions</h2>
+            <button className="flex items-center gap-2 text-sm font-medium text-stone-600 hover:text-stone-900 border border-stone-200 rounded-md px-3 py-1.5 hover:bg-stone-50">
+              <Filter className="w-4 h-4" />
+              FILTER
+            </button>
+          </div>
+          
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-stone-100 text-xs font-bold tracking-widest uppercase text-stone-500">
+                <th className="px-6 py-4 font-bold">PRODUCT</th>
+                <th className="px-6 py-4 font-bold">AMOUNT</th>
+                <th className="px-6 py-4 font-bold">MAKING COST</th>
+                <th className="px-6 py-4 font-bold">DATE</th>
+                <th className="px-6 py-4 font-bold text-right">STATUS</th>
               </tr>
-            ) : (
-              transactions.map((tx) => (
-                <tr key={tx.id} className="text-sm text-stone-900 hover:bg-stone-50/50 transition-colors">
-                  <td className="px-6 py-5 flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${tx.badgeClass}`}>
-                      {tx.initials}
-                    </div>
-                    <span className="font-medium text-stone-700">{tx.product}</span>
-                  </td>
-                  <td className="px-6 py-5">{formatCurrency(tx.amount)}</td>
-                  <td className="px-6 py-5 text-stone-500">{formatDate(tx.date)}</td>
-                  <td className="px-6 py-5 text-right">
-                     <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider inline-block ${tx.badgeClass}`}>
-                      {tx.status}
-                    </span>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {transactions.length === 0 ? (
+                <tr>
+                  <td className="px-6 py-6 text-sm text-stone-500" colSpan={5}>
+                    No transactions yet.
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              ) : (
+                transactions.map((tx) => (
+                  <tr key={tx.id} className="text-sm text-stone-900 hover:bg-stone-50/50 transition-colors">
+                    <td className="px-6 py-5 flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${tx.badgeClass}`}>
+                        {tx.initials}
+                      </div>
+                      <span className="font-medium text-stone-700">{tx.product}</span>
+                    </td>
+                    <td className="px-6 py-5">{formatCurrency(tx.amount)}</td>
+                    <td className="px-6 py-5">{tx.makingCost == null ? '-' : formatCurrency(tx.makingCost)}</td>
+                    <td className="px-6 py-5 text-stone-500">{formatDate(tx.date)}</td>
+                    <td className="px-6 py-5 text-right">
+                       <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider inline-block ${tx.badgeClass}`}>
+                        {tx.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Catalog Table */}
+      {activeTab === 'catalog' && (
+        <div className="bg-white rounded-xl shadow-sm border border-stone-100 overflow-hidden">
+          <div className="p-6 flex items-center justify-between border-b border-stone-100">
+            <h2 className="text-xl font-medium text-stone-900">Product Catalog</h2>
+            <button className="flex items-center gap-2 text-sm font-medium text-stone-600 hover:text-stone-900 border border-stone-200 rounded-md px-3 py-1.5 hover:bg-stone-50">
+              <Filter className="w-4 h-4" />
+              FILTER
+            </button>
+          </div>
+          
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="border-b border-stone-100 text-xs font-bold tracking-widest uppercase text-stone-500">
+                <th className="px-6 py-4 font-bold">PRODUCT NAME</th>
+                <th className="px-6 py-4 font-bold">TYPE</th>
+                <th className="px-6 py-4 font-bold">QUANTITY</th>
+                <th className="px-6 py-4 font-bold">PRICE</th>
+                <th className="px-6 py-4 font-bold">MAKING COST</th>
+                <th className="px-6 py-4 font-bold">DUE DATE</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {catalog.length === 0 ? (
+                <tr>
+                  <td className="px-6 py-6 text-sm text-stone-500" colSpan={6}>
+                    No products in catalog yet.
+                  </td>
+                </tr>
+              ) : (
+                catalog.map((product) => (
+                  <tr key={product.id} className="text-sm text-stone-900 hover:bg-stone-50/50 transition-colors">
+                    <td className="px-6 py-5 font-medium text-stone-700">{product.name}</td>
+                    <td className="px-6 py-5 text-stone-600">{product.type || '-'}</td>
+                    <td className="px-6 py-5">{product.quantity}</td>
+                    <td className="px-6 py-5">{product.price == null ? '-' : formatCurrency(product.price)}</td>
+                    <td className="px-6 py-5">{product.makingCost == null ? '-' : formatCurrency(product.makingCost)}</td>
+                    <td className="px-6 py-5 text-stone-500">{formatDate(product.dueDate)}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

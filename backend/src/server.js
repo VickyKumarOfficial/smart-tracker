@@ -85,7 +85,7 @@ app.get('/api/users/:id', asyncHandler(async (req, res) => {
 }));
 
 app.post('/api/products', asyncHandler(async (req, res) => {
-  const { user_id, name, type, quantity, price, status, image_url } = req.body || {};
+  const { user_id, name, type, quantity, price, making_cost, transaction_date, due_date, status, image_url } = req.body || {};
 
   if (!user_id || !name) {
     return res.status(400).json({ error: 'Missing required product fields.' });
@@ -99,6 +99,9 @@ app.post('/api/products', asyncHandler(async (req, res) => {
       type,
       quantity: quantity ?? 1,
       price: price ?? 0,
+      making_cost: making_cost ?? 0,
+      transaction_date: transaction_date ?? null,
+      due_date: due_date ?? null,
       status: status ?? 'not_sold',
       image_url,
     })
@@ -228,7 +231,7 @@ app.get('/api/dashboard', asyncHandler(async (req, res) => {
 
   const { data: catalogHistory, error: catalogError } = await supabase
     .from('products')
-    .select('id, name, type, quantity, price, created_at')
+    .select('id, name, type, quantity, price, making_cost, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(4);
@@ -252,6 +255,7 @@ app.get('/api/dashboard', asyncHandler(async (req, res) => {
     material: entry.type,
     quantity: entry.quantity,
     price: entry.price,
+    making_cost: entry.making_cost,
     created_at: entry.created_at,
   }));
 

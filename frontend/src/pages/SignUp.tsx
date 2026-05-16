@@ -76,6 +76,8 @@ export function SignUp() {
         throw new Error('Unable to create account.');
       }
 
+      const googleAvatarUrl = authData.user?.user_metadata?.avatar_url || authData.user?.user_metadata?.picture || localStorage.getItem('avatar_url') || null;
+
       const response = await fetch(`${API_BASE_URL}/api/users`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -87,6 +89,7 @@ export function SignUp() {
           vendor_name: vendorName.trim() || null,
           field_of_work: normalizedFields,
           location: location.trim(),
+          avatar_url: googleAvatarUrl,
         }),
       });
 
@@ -104,6 +107,9 @@ export function SignUp() {
           localStorage.setItem('vendor_name', vendorName.trim());
         }
         localStorage.setItem('vendor_location', location.trim());
+        if (googleAvatarUrl) {
+          localStorage.setItem('avatar_url', googleAvatarUrl);
+        }
         navigate('/dashboard');
         return;
       }

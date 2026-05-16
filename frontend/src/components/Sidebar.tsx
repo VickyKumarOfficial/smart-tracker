@@ -7,6 +7,15 @@ interface SidebarProps {
 
 export function Sidebar({ onAddItem }: SidebarProps) {
   const location = useLocation();
+  const avatarUrl = localStorage.getItem('avatar_url') || '';
+  const userName = localStorage.getItem('user_name') || 'Vendor';
+  const vendorName = localStorage.getItem('vendor_name') || 'Master Vendor';
+  const initials = userName
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join('') || 'V';
   
   const navItems = [
     { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
@@ -19,14 +28,20 @@ export function Sidebar({ onAddItem }: SidebarProps) {
     <div className="w-64 bg-white border-r border-[#F0EBE6] flex flex-col h-screen font-sans">
       {/* Logo */}
       <div className="flex items-center gap-3 px-6 py-8">
-        <img 
-          src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=faces" 
-          alt="Vendor Owner" 
-          className="w-10 h-10 rounded-full object-cover"
-        />
+        {avatarUrl ? (
+          <img
+            src={avatarUrl}
+            alt="Vendor Owner"
+            className="w-10 h-10 rounded-full object-cover"
+          />
+        ) : (
+          <div className="w-10 h-10 rounded-full bg-stone-100 text-stone-700 font-semibold text-sm flex items-center justify-center">
+            {initials}
+          </div>
+        )}
         <div>
           <h1 className="font-semibold text-[#8B3A1C] text-lg leading-tight">Artisan<br/>Ledger</h1>
-          <p className="text-xs text-stone-500 font-medium uppercase tracking-wider">Master Vendor</p>
+          <p className="text-xs text-stone-500 font-medium uppercase tracking-wider">{vendorName}</p>
         </div>
       </div>
 
