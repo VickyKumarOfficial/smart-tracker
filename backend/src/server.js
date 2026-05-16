@@ -134,6 +134,17 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'Server is running' });
 });
 
+app.get('/api/ai/chats', asyncHandler(async (req, res) => {
+  const userId = req.query.user_id;
+
+  if (!userId) {
+    return res.status(400).json({ error: 'user_id is required.' });
+  }
+
+  const chats = await loadAiChatsForUser(userId);
+  return res.json({ chats });
+}));
+
 app.post('/api/users', asyncHandler(async (req, res) => {
   const { id, email, name, dob, vendor_name, field_of_work, location, avatar_url } = req.body || {};
 
@@ -507,8 +518,54 @@ Help artisans grow their business, improve profitability, and manage their craft
 ## Tone
 Professional but warm, like a knowledgeable mentor who understands the artisan's world. Respect the craft. Never condescending.`;
 
+const AI_CHAT_MODEL = 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning';
+
+const toChatTitle = (text) => {
+  const value = (text || '').trim();
+  if (!value) {
+    return 'New chat';
+  }
+  return value.length > 42 ? `${value.slice(0, 42)}…` : value;
+};
+
+const toChatPreview = (text) => {
+  const value = (text || '').trim();
+  if (!value) {
+    return '…';
+  }
+  return value.length > 65 ? `${value.slice(0, 65)}…` : value;
+};
+
+const buildTranscriptMessage = (role, content, reasoning = '') => ({
+  id: crypto.randomUUID(),
+  role,
+  content,
+  reasoning,
+});
+
+const loadAiChatsForUser = async (userId) => {
+  const { data, error } = await supabase
+    .from('ai_chats')
+    .select('*')
+    .eq('user_id', userId)
+    .order('last_message_at', { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data || []).map((chat) => ({
+    id: chat.id,
+    title: chat.title,
+    preview: chat.preview,
+    time: new Date(chat.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    last_message_at: chat.last_message_at,
+    messages: Array.isArray(chat.messages) ? chat.messages : [],
+  }));
+};
+
 app.post('/api/ai/chat', asyncHandler(async (req, res) => {
-  const { messages } = req.body || {};
+  const { messages, user_id: userId, chat_id: chatId } = req.body || {};
 
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'messages array is required.' });
@@ -532,14 +589,61 @@ app.post('/api/ai/chat', asyncHandler(async (req, res) => {
   // Prepend the system prompt — strip any existing system message from the
   // client to prevent prompt injection overrides.
   const userMessages = messages.filter((m) => m.role !== 'system');
+  const userMessage = userMessages.find((message) => message.role === 'user') || userMessages[0] || null;
+  const userMessageText = userMessage?.content || '';
   const messagesWithSystem = [
     { role: 'system', content: ARTISAN_SYSTEM_PROMPT },
     ...userMessages,
   ];
 
+  const persistChat = Boolean(userId);
+  let currentChatId = chatId || null;
+  let existingMessages = [];
+
+  if (persistChat) {
+    if (currentChatId) {
+      const { data: chatRow, error: chatError } = await supabase
+        .from('ai_chats')
+        .select('*')
+        .eq('id', currentChatId)
+        .eq('user_id', userId)
+        .single();
+
+      if (chatError) {
+        return res.status(404).json({ error: 'Chat not found.' });
+      }
+
+      existingMessages = Array.isArray(chatRow.messages) ? chatRow.messages : [];
+    } else {
+      const { data: createdChat, error: createError } = await supabase
+        .from('ai_chats')
+        .insert({
+          user_id: userId,
+          title: toChatTitle(userMessageText),
+          preview: toChatPreview(userMessageText),
+          messages: [],
+          model: AI_CHAT_MODEL,
+          status: 'active',
+          last_message_at: new Date().toISOString(),
+        })
+        .select('*')
+        .single();
+
+      if (createError) {
+        return res.status(400).json({ error: createError.message });
+      }
+
+      currentChatId = createdChat.id;
+      sendEvent({ type: 'chat_created', chat_id: currentChatId });
+    }
+  }
+
+  let accContent = '';
+  let accReasoning = '';
+
   try {
     const completion = await nvidiaClient.chat.completions.create({
-      model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
+      model: AI_CHAT_MODEL,
       messages: messagesWithSystem,
       temperature: 0.6,
       top_p: 0.95,
@@ -555,18 +659,60 @@ app.post('/api/ai/chat', asyncHandler(async (req, res) => {
       const finishReason = chunk.choices[0]?.finish_reason;
 
       if (reasoning) {
+        accReasoning += reasoning;
         sendEvent({ type: 'reasoning', text: reasoning });
       }
       if (content) {
+        accContent += content;
         sendEvent({ type: 'content', text: content });
       }
       if (finishReason === 'stop') {
         sendEvent({ type: 'done' });
       }
     }
+
+    if (persistChat && currentChatId) {
+      const updatedMessages = [
+        ...existingMessages,
+        buildTranscriptMessage('user', userMessageText),
+        buildTranscriptMessage('assistant', accContent, accReasoning),
+      ];
+
+      await supabase
+        .from('ai_chats')
+        .update({
+          messages: updatedMessages,
+          preview: toChatPreview(accContent || userMessageText),
+          status: 'completed',
+          last_message_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', currentChatId)
+        .eq('user_id', userId);
+    }
   } catch (err) {
     console.error('NVIDIA API error:', err?.message || err);
     sendEvent({ type: 'error', message: err?.message || 'Unknown AI error.' });
+
+    if (persistChat && currentChatId) {
+      const updatedMessages = [
+        ...existingMessages,
+        buildTranscriptMessage('user', userMessageText),
+        buildTranscriptMessage('assistant', accContent || `⚠️ ${err?.message || 'Unknown AI error.'}`, accReasoning),
+      ];
+
+      await supabase
+        .from('ai_chats')
+        .update({
+          messages: updatedMessages,
+          preview: toChatPreview(accContent || err?.message || userMessageText),
+          status: 'failed',
+          last_message_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', currentChatId)
+        .eq('user_id', userId);
+    }
   } finally {
     res.end();
   }

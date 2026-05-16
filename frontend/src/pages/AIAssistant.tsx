@@ -90,6 +90,39 @@ export function AIAssistant() {
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   useEffect(() => {
+    const loadSavedChats = async () => {
+      const userId = localStorage.getItem('user_id');
+      if (!userId) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/ai/chats?user_id=${encodeURIComponent(userId)}`);
+        if (!response.ok) {
+          return;
+        }
+
+        const data = await response.json().catch(() => null);
+        const savedChats = Array.isArray(data?.chats)
+          ? data.chats.map((chat: any) => ({
+              id: chat.id,
+              title: chat.title,
+              preview: chat.preview,
+              time: chat.time || new Date(chat.last_message_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              messages: Array.isArray(chat.messages) ? chat.messages : [],
+            }))
+          : [];
+
+        setChats(savedChats);
+      } catch {
+        // Keep local state usable if history hydration fails.
+      }
+    };
+
+    void loadSavedChats();
+  }, []);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
@@ -167,6 +200,9 @@ export function AIAssistant() {
     const text = (overrideText ?? input).trim();
     if (!text || isLoading) return;
 
+    const userId = localStorage.getItem('user_id');
+    let currentChatId = activeChatId;
+
     const userMsg: Message = { id: uid(), role: 'user', content: text };
     const assistantId = uid();
     const assistantMsg: Message = { id: assistantId, role: 'assistant', content: '', reasoning: '', isStreaming: true };
@@ -188,7 +224,7 @@ export function AIAssistant() {
       const res = await fetch(`${BACKEND_URL}/api/ai/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: apiMessages }),
+        body: JSON.stringify({ messages: apiMessages, user_id: userId, chat_id: activeChatId }),
         signal: controller.signal,
       });
 
@@ -209,7 +245,9 @@ export function AIAssistant() {
           if (!line.startsWith('data: ')) continue;
           try {
             const event = JSON.parse(line.slice(6));
-            if (event.type === 'content') {
+            if (event.type === 'chat_created' && event.chat_id) {
+              currentChatId = event.chat_id;
+            } else if (event.type === 'content') {
               accContent += event.text;
               setMessages((prev) => prev.map((m) => m.id === assistantId ? { ...m, content: accContent } : m));
             } else if (event.type === 'reasoning') {
@@ -235,6 +273,7 @@ export function AIAssistant() {
         const title = text.length > 42 ? text.slice(0, 42) + '…' : text;
         const preview = accContent.slice(0, 65) || '…';
         const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const resolvedChatId = currentChatId || uid();
         const finalMsgs = newMessages.map((m) => m.id === assistantId
           ? { ...m, content: accContent, reasoning: accReasoning, isStreaming: false }
           : m
@@ -243,8 +282,8 @@ export function AIAssistant() {
         if (activeChatId) {
           return prev.map((c) => c.id === activeChatId ? { ...c, preview, time: timeStr, messages: finalMsgs } : c);
         }
-        const entry: ChatEntry = { id: uid(), title, preview, time: timeStr, messages: finalMsgs };
-        setActiveChatId(entry.id);
+        const entry: ChatEntry = { id: resolvedChatId, title, preview, time: timeStr, messages: finalMsgs };
+        setActiveChatId(resolvedChatId);
         return [entry, ...prev];
       });
     }
