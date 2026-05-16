@@ -20,6 +20,108 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY, {
   auth: { persistSession: false },
 });
 
+const AVATAR_BUCKET = 'avatars';
+let avatarBucketReady = false;
+
+const isGoogleAvatarUrl = (value) => {
+  if (!value) {
+    return false;
+  }
+  try {
+    const parsed = new URL(value);
+    return parsed.hostname.endsWith('googleusercontent.com');
+  } catch {
+    return false;
+  }
+};
+
+const isHostedAvatarUrl = (value) => {
+  if (!value) {
+    return false;
+  }
+  return value.startsWith(`${SUPABASE_URL}/storage/v1/object/public/${AVATAR_BUCKET}/`);
+};
+
+const getAvatarExtension = (contentType) => {
+  if (!contentType) {
+    return 'jpg';
+  }
+  const normalized = contentType.toLowerCase();
+  if (normalized.includes('png')) {
+    return 'png';
+  }
+  if (normalized.includes('webp')) {
+    return 'webp';
+  }
+  if (normalized.includes('gif')) {
+    return 'gif';
+  }
+  return 'jpg';
+};
+
+const ensureAvatarBucket = async () => {
+  if (avatarBucketReady) {
+    return;
+  }
+
+  const { data: buckets, error } = await supabase.storage.listBuckets();
+  if (error) {
+    throw error;
+  }
+
+  const existing = (buckets || []).find((bucket) => bucket.name === AVATAR_BUCKET);
+  if (!existing) {
+    const { error: createError } = await supabase.storage.createBucket(AVATAR_BUCKET, { public: true });
+    if (createError) {
+      throw createError;
+    }
+  } else if (!existing.public) {
+    const { error: updateError } = await supabase.storage.updateBucket(AVATAR_BUCKET, { public: true });
+    if (updateError) {
+      throw updateError;
+    }
+  }
+
+  avatarBucketReady = true;
+};
+
+const resolveAvatarUrl = async (avatarUrl, userId) => {
+  if (!avatarUrl || !userId) {
+    return avatarUrl;
+  }
+  if (isHostedAvatarUrl(avatarUrl) || !isGoogleAvatarUrl(avatarUrl)) {
+    return avatarUrl;
+  }
+
+  try {
+    await ensureAvatarBucket();
+
+    const response = await fetch(avatarUrl);
+    if (!response.ok) {
+      throw new Error(`Avatar download failed (${response.status}).`);
+    }
+
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+    const extension = getAvatarExtension(contentType);
+    const filePath = `${userId}.${extension}`;
+    const buffer = Buffer.from(await response.arrayBuffer());
+
+    const { error: uploadError } = await supabase.storage
+      .from(AVATAR_BUCKET)
+      .upload(filePath, buffer, { contentType, upsert: true });
+
+    if (uploadError) {
+      throw uploadError;
+    }
+
+    const { data } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(filePath);
+    return data?.publicUrl || avatarUrl;
+  } catch (error) {
+    console.warn('Avatar rehost failed:', error?.message || error);
+    return avatarUrl;
+  }
+};
+
 app.use(cors());
 app.use(express.json());
 
@@ -38,6 +140,10 @@ app.post('/api/users', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: 'Missing required user fields.' });
   }
 
+  const resolvedAvatarUrl = id
+    ? await resolveAvatarUrl(avatar_url, id)
+    : avatar_url;
+
   const payload = {
     email,
     name,
@@ -45,7 +151,7 @@ app.post('/api/users', asyncHandler(async (req, res) => {
     vendor_name,
     field_of_work,
     location,
-    avatar_url,
+    avatar_url: resolvedAvatarUrl,
   };
   if (id) {
     payload.id = id;
@@ -79,6 +185,30 @@ app.get('/api/users/:id', asyncHandler(async (req, res) => {
       ? 404
       : (typeof error.status === 'number' ? error.status : 500);
     return res.status(status).json({ error: error.message });
+  }
+
+  return res.json(data);
+}));
+
+app.post('/api/users/:id/avatar', asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { avatar_url } = req.body || {};
+
+  if (!id || !avatar_url) {
+    return res.status(400).json({ error: 'Missing avatar_url.' });
+  }
+
+  const resolvedAvatarUrl = await resolveAvatarUrl(avatar_url, id);
+
+  const { data, error } = await supabase
+    .from('users')
+    .update({ avatar_url: resolvedAvatarUrl })
+    .eq('id', id)
+    .select('*')
+    .single();
+
+  if (error) {
+    return res.status(400).json({ error: error.message });
   }
 
   return res.json(data);

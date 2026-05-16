@@ -1,12 +1,12 @@
 import { LogOut, User, Mail, Briefcase, MapPin, Edit2, X, Check } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabaseClient';
 
 export function Account() {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
-  const avatarUrl = localStorage.getItem('avatar_url') || '';
+  const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem('avatar_url') || '');
   const storedUserName = localStorage.getItem('user_name') || 'Vendor';
   const initials = storedUserName
     .split(' ')
@@ -21,6 +21,40 @@ export function Account() {
     fields: 'Ceramist, Jeweller',
     location: localStorage.getItem('vendor_location') || '-',
   });
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const syncAvatar = async () => {
+      const existingAvatar = localStorage.getItem('avatar_url') || '';
+      if (existingAvatar) {
+        setAvatarUrl(existingAvatar);
+        return;
+      }
+
+      const { data } = await supabase.auth.getSession();
+      if (!isMounted) {
+        return;
+      }
+
+      const sessionUser = data.session?.user;
+      if (!sessionUser) {
+        return;
+      }
+
+      const googleAvatarUrl = sessionUser.user_metadata?.avatar_url || sessionUser.user_metadata?.picture;
+      if (googleAvatarUrl) {
+        localStorage.setItem('avatar_url', googleAvatarUrl);
+        setAvatarUrl(googleAvatarUrl);
+      }
+    };
+
+    void syncAvatar();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleSignOut = async () => {
     try {
