@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
+import OpenAI from 'openai';
 
 dotenv.config();
 
@@ -405,6 +406,112 @@ app.get('/api/dashboard', asyncHandler(async (req, res) => {
     recent_transactions: recent,
     catalog_history: catalog,
   });
+}));
+
+// ── NVIDIA Nemotron AI Chat Endpoint ──────────────────────────────────────────
+const nvidiaClient = new OpenAI({
+  apiKey: process.env.NVIDIA_API_KEY,
+  baseURL: 'https://integrate.api.nvidia.com/v1',
+});
+
+/**
+ * System prompt — instructs the model to act as a dedicated artisan business
+ * advisor. Primary focus: product/inventory/finance analysis + actionable
+ * suggestions specific to the artisan's trade. General assistance is secondary
+ * and should only be offered when the user explicitly asks.
+ */
+const ARTISAN_SYSTEM_PROMPT = `You are SmartTracker AI, an expert business advisor embedded inside SmartTracker — a financial and inventory management application built exclusively for artisans and small craft-based businesses (potters, jewellers, woodworkers, textile makers, leatherworkers, metalworkers, candle makers, soap makers, and all other trades).
+
+## Your Primary Mission
+Help artisans grow their business, improve profitability, and manage their craft enterprise more effectively. Always lead with specific, actionable advice tied directly to what the user tells you about their products, inventory, expenses, and sales.
+
+## Response Priority (strict order)
+1. **Business & Product Advice (PRIMARY)** — Analyse product data, pricing, margins, material costs, inventory levels, and sales trends that the user shares. Provide concrete recommendations:
+   - Pricing strategies tailored to the artisan's craft niche
+   - Profit margin optimisation and cost reduction ideas
+   - Inventory management and reorder suggestions
+   - Cash flow and payment collection tips
+   - Identifying best-selling vs slow-moving products
+   - Seasonal demand patterns for their craft type
+   - Supplier sourcing and material cost negotiation
+   - Upselling, bundling, or product-line expansion ideas
+2. **General Assistance (SECONDARY)** — Answer general questions (drafting emails, explaining business terms, writing descriptions, etc.) only when the user explicitly asks for something outside of business analysis.
+
+## Behaviour Rules
+- **Always ask clarifying questions** if the user's query is vague — e.g. "Which product are you referring to?" or "What is the material cost for this item?"
+- **Use numbers wherever possible.** If the user gives you data, calculate margins, profits, or breakeven points.
+- **Be concise and practical.** Artisans are busy makers — avoid long preambles. Lead with the answer.
+- **Be craft-aware.** Understand that artisans deal with handmade variability, seasonal demand, commission work, material spoilage, and pricing challenges unique to handmade goods.
+- **Never make up financial data.** If the user hasn't provided data, ask for it before giving specific figures.
+- **Format responses clearly** using short paragraphs, bullet points, or numbered steps where appropriate.
+- If asked something entirely unrelated to their business or craft, gently redirect: "That's a bit outside my specialty — I'm best at helping with your artisan business. But here's a quick answer…"
+
+## Tone
+Professional but warm, like a knowledgeable mentor who understands the artisan's world. Respect the craft. Never condescending.`;
+
+app.post('/api/ai/chat', asyncHandler(async (req, res) => {
+  const { messages } = req.body || {};
+
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: 'messages array is required.' });
+  }
+
+  if (!process.env.NVIDIA_API_KEY) {
+    return res.status(500).json({ error: 'NVIDIA_API_KEY is not configured on the server.' });
+  }
+
+  // Set up Server-Sent Events headers for streaming
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  res.flushHeaders();
+
+  const sendEvent = (data) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  // Prepend the system prompt — strip any existing system message from the
+  // client to prevent prompt injection overrides.
+  const userMessages = messages.filter((m) => m.role !== 'system');
+  const messagesWithSystem = [
+    { role: 'system', content: ARTISAN_SYSTEM_PROMPT },
+    ...userMessages,
+  ];
+
+  try {
+    const completion = await nvidiaClient.chat.completions.create({
+      model: 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning',
+      messages: messagesWithSystem,
+      temperature: 0.6,
+      top_p: 0.95,
+      max_tokens: 65536,
+      reasoning_budget: 16384,
+      chat_template_kwargs: { enable_thinking: true },
+      stream: true,
+    });
+
+    for await (const chunk of completion) {
+      const reasoning = chunk.choices[0]?.delta?.reasoning_content;
+      const content = chunk.choices[0]?.delta?.content;
+      const finishReason = chunk.choices[0]?.finish_reason;
+
+      if (reasoning) {
+        sendEvent({ type: 'reasoning', text: reasoning });
+      }
+      if (content) {
+        sendEvent({ type: 'content', text: content });
+      }
+      if (finishReason === 'stop') {
+        sendEvent({ type: 'done' });
+      }
+    }
+  } catch (err) {
+    console.error('NVIDIA API error:', err?.message || err);
+    sendEvent({ type: 'error', message: err?.message || 'Unknown AI error.' });
+  } finally {
+    res.end();
+  }
 }));
 
 app.use((err, req, res, next) => {
