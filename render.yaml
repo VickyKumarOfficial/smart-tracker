@@ -4,7 +4,7 @@ services:
     name: smart-tracker-backend
     env: node
     plan: free
-    rootDirectory: backend  # <--- This tells Render to look only in the /backend folder
+    rootDir: backend
     buildCommand: npm install
     startCommand: npm start
     envVars:
@@ -24,7 +24,7 @@ services:
     name: smart-tracker-frontend
     env: node
     plan: free
-    rootDirectory: frontend # <--- This tells Render to look only in the /frontend folder
+    rootDir: frontend
     buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
