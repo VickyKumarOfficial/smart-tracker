@@ -198,12 +198,18 @@ app.get('/api/dashboard', asyncHandler(async (req, res) => {
     return res.status(400).json({ error: transactionsError.message });
   }
 
+  const { data: products, error: productsError } = await supabase
+    .from('products')
+    .select('price, making_cost')
+    .eq('user_id', userId);
+
+  if (productsError) {
+    return res.status(400).json({ error: productsError.message });
+  }
+
   const totals = (transactions || []).reduce(
     (acc, tx) => {
       const amount = Number(tx.amount) || 0;
-      if (tx.payment_status === 'completed') {
-        acc.total_profit += amount;
-      }
       if (tx.payment_status === 'pending' || tx.payment_status === 'overdue') {
         acc.due_amount += amount;
         acc.due_count += 1;
@@ -211,8 +217,10 @@ app.get('/api/dashboard', asyncHandler(async (req, res) => {
       return acc;
     },
     {
-      total_profit: 0,
-      total_expenses: 0,
+      total_profit:
+        (products || []).reduce((sum, product) => sum + (Number(product.price) || 0), 0) -
+        (products || []).reduce((sum, product) => sum + (Number(product.making_cost) || 0), 0),
+      total_expenses: (products || []).reduce((sum, product) => sum + (Number(product.making_cost) || 0), 0),
       due_amount: 0,
       due_count: 0,
     }
