@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { TrendingUp, TrendingDown, AlertTriangle, Filter } from 'lucide-react';
 import { useOutletContext } from 'react-router-dom';
 
@@ -29,6 +29,22 @@ const formatStatus = (status?: string | null) => {
   return 'PENDING';
 };
 
+const normalizeDate = (value?: string | null) => {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+};
+
+const getLocalDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getMonthKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}`;
+
 type RecentTransaction = {
   id: string;
   amount: number;
@@ -45,6 +61,19 @@ type CatalogEntry = {
   quantity: number | null;
   price: number | null;
   making_cost: number | null;
+  created_at: string | null;
+};
+type ChartTransaction = {
+  id: string;
+  amount: number;
+  transaction_date: string | null;
+  created_at: string | null;
+};
+
+type ChartProduct = {
+  id: string;
+  making_cost: number | null;
+  transaction_date: string | null;
   created_at: string | null;
 };
 
@@ -67,6 +96,11 @@ export function Dashboard() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
+  const [activeRange, setActiveRange] = useState<'week' | 'month'>('month');
+  const [showLiquidityChart, setShowLiquidityChart] = useState(false);
+  const [activeReport, setActiveReport] = useState<'profit' | 'expenses'>('profit');
+  const [chartTransactions, setChartTransactions] = useState<ChartTransaction[]>([]);
+  const [chartProducts, setChartProducts] = useState<ChartProduct[]>([]);
 
   useEffect(() => {
     const userId = localStorage.getItem('user_id');
@@ -82,14 +116,30 @@ export function Dashboard() {
       setIsLoading(true);
       setLoadError('');
       try {
-        const response = await fetch(`${API_BASE_URL}/api/dashboard?user_id=${userId}`, {
-          signal: controller.signal,
-        });
-        if (!response.ok) {
-          const errorBody = await response.json().catch(() => ({}));
+        const [dashboardResponse, transactionsResponse, productsResponse] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/dashboard?user_id=${userId}`, { signal: controller.signal }),
+          fetch(`${API_BASE_URL}/api/transactions?user_id=${userId}`, { signal: controller.signal }),
+          fetch(`${API_BASE_URL}/api/products?user_id=${userId}`, { signal: controller.signal }),
+        ]);
+
+        if (!dashboardResponse.ok) {
+          const errorBody = await dashboardResponse.json().catch(() => ({}));
           throw new Error(errorBody.error || 'Unable to load dashboard data.');
         }
-        const data = await response.json();
+
+        if (!transactionsResponse.ok) {
+          const errorBody = await transactionsResponse.json().catch(() => ({}));
+          throw new Error(errorBody.error || 'Unable to load transactions.');
+        }
+
+        if (!productsResponse.ok) {
+          const errorBody = await productsResponse.json().catch(() => ({}));
+          throw new Error(errorBody.error || 'Unable to load products.');
+        }
+
+        const data = await dashboardResponse.json();
+        const transactionsData = (await transactionsResponse.json()) as ChartTransaction[];
+        const productsData = (await productsResponse.json()) as ChartProduct[];
         setDashboardData({
           total_profit: Number(data.total_profit) || 0,
           total_expenses: Number(data.total_expenses) || 0,
@@ -98,6 +148,8 @@ export function Dashboard() {
           recent_transactions: data.recent_transactions ?? [],
           catalog_history: data.catalog_history ?? [],
         });
+        setChartTransactions(Array.isArray(transactionsData) ? transactionsData : []);
+        setChartProducts(Array.isArray(productsData) ? productsData : []);
       } catch (error) {
         if (error instanceof Error && error.name === 'AbortError') {
           return;
@@ -115,6 +167,64 @@ export function Dashboard() {
 
   const recentTransactions = dashboardData.recent_transactions;
   const catalogHistory = dashboardData.catalog_history;
+  const liquiditySeries = useMemo(() => {
+    const now = new Date();
+    const buckets =
+      activeRange === 'month'
+        ? Array.from({ length: 12 }, (_, index) => {
+            const date = new Date(now.getFullYear(), now.getMonth() - (11 - index), 1);
+            return {
+              key: getMonthKey(date),
+              label: date.toLocaleDateString('en-IN', { month: 'short' }),
+            };
+          })
+        : Array.from({ length: 7 }, (_, index) => {
+            const date = new Date(now);
+            date.setDate(now.getDate() - (6 - index));
+            return {
+              key: getLocalDateKey(date),
+              label: date.toLocaleDateString('en-IN', { weekday: 'short' }),
+            };
+          });
+
+    const totals = new Map(buckets.map((bucket) => [bucket.key, 0]));
+    const addToBucket = (date: Date, amount: number) => {
+      const key = activeRange === 'month' ? getMonthKey(date) : getLocalDateKey(date);
+      if (!totals.has(key)) return;
+      totals.set(key, (totals.get(key) ?? 0) + amount);
+    };
+
+    if (activeReport === 'profit') {
+      chartTransactions.forEach((tx) => {
+        const date = normalizeDate(tx.transaction_date ?? tx.created_at);
+        if (!date) return;
+        addToBucket(date, Number(tx.amount) || 0);
+      });
+    }
+
+    chartProducts.forEach((entry) => {
+      const date = normalizeDate(entry.transaction_date ?? entry.created_at);
+      if (!date) return;
+      addToBucket(date, -Number(entry.making_cost) || 0);
+    });
+
+    const points = buckets.map((bucket) => ({
+      label: bucket.label,
+      value: totals.get(bucket.key) ?? 0,
+    }));
+    const maxAbs = Math.max(...points.map((point) => Math.abs(point.value)), 1);
+
+    return { points, maxAbs };
+  }, [activeRange, chartProducts, chartTransactions, activeReport]);
+  const chartMaxAbs = liquiditySeries.maxAbs;
+  const axisTicks = useMemo(() => {
+    const steps = 4;
+    return Array.from({ length: steps + 1 }, (_, index) => {
+      const ratio = 1 - index / steps;
+      return chartMaxAbs * (ratio * 2 - 1);
+    });
+  }, [chartMaxAbs]);
+  const hasLiquidityData = liquiditySeries.points.some((point) => point.value !== 0);
   const isProfit = dashboardData.total_profit > 0;
   const profitPercentage =
     dashboardData.total_expenses > 0
@@ -123,6 +233,26 @@ export function Dashboard() {
         ? 100
         : 0;
   const formattedProfitPercentage = `${profitPercentage > 0 ? '+' : ''}${profitPercentage.toFixed(1)}%`;
+  const isProfitReportOpen = showLiquidityChart && activeReport === 'profit';
+  const isExpenseReportOpen = showLiquidityChart && activeReport === 'expenses';
+  const profitDetailsLabel = isProfitReportOpen ? 'HIDE DETAILS' : 'VIEW DETAILS';
+  const expenseDetailsLabel = isExpenseReportOpen ? 'HIDE DETAILS' : 'VIEW DETAILS';
+  const reportTitle = activeReport === 'expenses' ? 'Expense Report' : 'Liquidity Report';
+  const reportDescription =
+    activeReport === 'expenses'
+      ? `Total making costs for the selected ${activeRange}.`
+      : `Net payments minus making costs for the selected ${activeRange}.`;
+  const axisLabel = activeReport === 'expenses' ? 'TOTAL EXPENSES (INR)' : 'NET LIQUIDITY (INR)';
+  const chartMotionStyle = {
+    maxHeight: showLiquidityChart ? '900px' : '0px',
+    opacity: showLiquidityChart ? 1 : 0,
+    transform: showLiquidityChart ? 'translateY(0)' : 'translateY(-8px)',
+    transition: 'max-height 500ms ease, opacity 350ms ease, transform 500ms ease',
+  };
+  const handleReportToggle = (report: 'profit' | 'expenses') => {
+    setShowLiquidityChart((previous) => !(previous && activeReport === report));
+    setActiveReport(report);
+  };
 
   return (
     <div className="max-w-6xl mx-auto py-8">
@@ -130,8 +260,28 @@ export function Dashboard() {
         <h1 className="text-3xl font-medium text-[#8B3A1C]">Overview</h1>
         {/* Toggle (Week / Month) */}
         <div className="flex items-center text-sm font-medium">
-          <button className="text-[#A04A25] border-b-2 border-[#A04A25] pb-1 px-1">WEEK</button>
-          <button className="text-stone-400 hover:text-stone-600 pb-1 px-3">MONTH</button>
+          <button
+            className={`pb-1 px-1 border-b-2 ${
+              activeRange === 'week'
+                ? 'text-[#A04A25] border-[#A04A25]'
+                : 'text-stone-400 border-transparent hover:text-stone-600'
+            }`}
+            onClick={() => setActiveRange('week')}
+            type="button"
+          >
+            WEEK
+          </button>
+          <button
+            className={`pb-1 px-3 border-b-2 ${
+              activeRange === 'month'
+                ? 'text-[#A04A25] border-[#A04A25]'
+                : 'text-stone-400 border-transparent hover:text-stone-600'
+            }`}
+            onClick={() => setActiveRange('month')}
+            type="button"
+          >
+            MONTH
+          </button>
         </div>
       </div>
 
@@ -145,7 +295,7 @@ export function Dashboard() {
       )}
       
       {/* Stat Cards */}
-      <div className="grid grid-cols-3 gap-6 mb-12">
+      <div className="grid grid-cols-1 gap-6 mb-12 md:grid-cols-3">
         <div className="bg-white rounded-xl p-6 shadow-sm border border-stone-100 flex flex-col justify-between">
           <div className="flex justify-between items-start mb-6">
             <h3 className="text-xs font-bold tracking-widest text-stone-600 uppercase">TOTAL PROFIT</h3>
@@ -165,6 +315,15 @@ export function Dashboard() {
                 {isProfit ? 'PROFIT' : 'LOSS'}
               </span>
             </div>
+            <button
+              className="mt-4 text-xs font-bold tracking-widest uppercase text-[#8B3A1C] hover:underline"
+              onClick={() => handleReportToggle('profit')}
+              type="button"
+              aria-expanded={isProfitReportOpen}
+              aria-controls="liquidity-report"
+            >
+              {profitDetailsLabel}
+            </button>
           </div>
         </div>
 
@@ -176,6 +335,15 @@ export function Dashboard() {
           <div>
             <div className="text-4xl font-medium text-stone-900 mb-2">{formatCurrency(dashboardData.total_expenses)}</div>
             <span className="text-xs text-stone-500">Calculated from total making cost.</span>
+            <button
+              className="mt-4 text-xs font-bold tracking-widest uppercase text-[#8B3A1C] hover:underline"
+              onClick={() => handleReportToggle('expenses')}
+              type="button"
+              aria-expanded={isExpenseReportOpen}
+              aria-controls="liquidity-report"
+            >
+              {expenseDetailsLabel}
+            </button>
           </div>
         </div>
 
@@ -189,6 +357,121 @@ export function Dashboard() {
             <div className="flex items-center justify-between">
               <span className="bg-orange-100 text-[#A04A25] text-xs font-bold px-2 py-0.5 rounded">{dashboardData.due_count} Pending</span>
               <button className="text-xs font-bold tracking-widest uppercase text-[#8B3A1C] hover:underline">VIEW DETAILS</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div
+        aria-hidden={!showLiquidityChart}
+        className={`overflow-hidden ${showLiquidityChart ? 'pointer-events-auto' : 'pointer-events-none'}`}
+        style={chartMotionStyle}
+      >
+        <div className="pb-12">
+          <div
+            id="liquidity-report"
+            className="bg-white rounded-xl p-6 shadow-sm border border-stone-100"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+              <div>
+                <h2 className="text-2xl font-medium text-stone-900 mb-1">{reportTitle}</h2>
+                <p className="text-sm text-stone-500">{reportDescription}</p>
+              </div>
+              <button
+                className="text-xs font-bold tracking-widest uppercase text-[#8B3A1C] hover:underline"
+                onClick={() => setShowLiquidityChart(false)}
+                type="button"
+              >
+                HIDE
+              </button>
+            </div>
+
+            {!hasLiquidityData ? (
+              <div className="rounded-lg border border-dashed border-stone-200 px-6 py-10 text-center text-sm text-stone-500">
+                No liquidity data available for the selected range.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <div className="min-w-[520px]">
+                  <div className="flex gap-4">
+                    <div className="flex min-w-[80px] flex-col justify-between text-[11px] font-medium text-stone-400">
+                      {axisTicks.map((tick, index) => (
+                        <span key={`tick-${index}`} className="text-right">
+                          {formatCurrency(tick)}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="flex-1">
+                      <div className="relative h-64">
+                        <div className="absolute inset-0">
+                          {Array.from({ length: 5 }, (_, index) => (
+                            <div
+                              key={`grid-${index}`}
+                              className={`absolute left-0 right-0 border-t ${index === 2 ? 'border-stone-200' : 'border-stone-100'}`}
+                              style={{ top: `${(index / 4) * 100}%` }}
+                            />
+                          ))}
+                        </div>
+
+                        <div
+                          className={`grid h-full ${
+                            activeRange === 'month' ? 'grid-cols-12' : 'grid-cols-7'
+                          } items-stretch`}
+                        >
+                          {liquiditySeries.points.map((point, index) => {
+                            const heightPercent =
+                              point.value === 0
+                                ? 0
+                                : Math.max((Math.abs(point.value) / chartMaxAbs) * 50, 2);
+                            const isPositive = point.value >= 0;
+
+                            return (
+                              <div key={`${point.label}-${index}`} className="relative flex items-center justify-center">
+                                <div
+                                  className={`absolute left-1/2 w-5 -translate-x-1/2 sm:w-7 ${
+                                    isPositive
+                                      ? 'bottom-1/2 rounded-t-md bg-emerald-500'
+                                      : 'top-1/2 rounded-b-md bg-red-500'
+                                  }`}
+                                  style={{ height: `${heightPercent}%`, transition: 'height 700ms ease' }}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div
+                        className={`mt-3 grid ${
+                          activeRange === 'month' ? 'grid-cols-12' : 'grid-cols-7'
+                        } text-xs font-medium text-stone-500`}
+                      >
+                        {liquiditySeries.points.map((point, index) => (
+                          <span key={`${point.label}-label-${index}`} className="text-center">
+                            {point.label}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 text-[11px] font-semibold tracking-[0.2em] text-stone-400">
+                    {axisLabel}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-6 mt-6 text-xs font-medium text-stone-600">
+              <span className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-sm bg-red-500" />
+                Negative Liquidity
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />
+                Positive Liquidity
+              </span>
             </div>
           </div>
         </div>
